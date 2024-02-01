@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { RegisterUserDto } from './dto/register-dto';
 import { UserService } from '@src/user/user.service';
 import { User } from '@src/user/user.model';
+import { LoginDto } from './dto/login-dto';
 
 @Injectable()
 export class AuthService {
@@ -20,4 +21,6 @@ export class AuthService {
 
         return newUser
     }
+
+    async login(dto: LoginDto) {}
 }
