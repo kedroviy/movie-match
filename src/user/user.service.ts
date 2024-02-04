@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from './user.model';
 import { RegisterUserDto } from '@src/auth/dto/register-dto';
 import { CheckUserExistenceParams } from './interfaces';
-import { genSaltSync, hashSync, compareSync } from 'bcrypt';
+import { genSaltSync, hashSync } from 'bcrypt';
 
 @Injectable()
 export class UserService {
@@ -42,6 +42,10 @@ export class UserService {
         const user = await this.usersRepository.findOne({ where: condition });
     
         return !!user;
+    }
+
+    async getUserByEmail(email: string): Promise<User> {
+        return this.usersRepository.findOne({ where: { email } });
     }
 
     private hashPassword(password: string): string {

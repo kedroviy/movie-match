@@ -1,16 +1,27 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+    BadRequestException,
+    ConflictException,
+    Injectable,
+    NotFoundException,
+    UnauthorizedException
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
 import { RegisterUserDto } from './dto/register-dto';
 import { UserService } from '@src/user/user.service';
-import { User } from '@src/user/user.model';
 import { LoginDto } from './dto/login-dto';
+import { BearerToken, SuccessMessage } from "@src/auth/types";
+import { compareSync } from 'bcrypt';
+import { User } from "@src/user/user.model";
+
 
 @Injectable()
 export class AuthService {
     constructor(
-        private readonly userService: UserService
+        private readonly userService: UserService,
+        private readonly jwtService: JwtService,
     ) {}
     
-    async registration(dto: RegisterUserDto): Promise<User> {
+    async registration(dto: RegisterUserDto): Promise<SuccessMessage> {
         const user = await this.userService.isUserExist({ email: dto.email, username: dto.username });
 
         if (user) {
@@ -19,8 +30,32 @@ export class AuthService {
 
         const newUser = await this.userService.create(dto)
 
-        return newUser
+        if (!newUser) {
+            throw new BadRequestException()
+        }
+
+        return { message: 'User successfully registered.' }
     }
 
-    async login(dto: LoginDto) {}
+    async login(dto: LoginDto): Promise<BearerToken> {
+        const user = await this.userService.getUserByEmail(dto.email)
+
+        if (!user || !compareSync(dto.password, user.password)) {
+            throw new UnauthorizedException('Incorrect email or password.');
+        }
+
+        return this.generateTokens(user)
+    }
+
+    async getMe() {}
+
+    private async generateTokens(user: User): Promise<BearerToken> {
+
+        const accessToken = this.jwtService.sign({
+            id: user.id,
+            email: user.email,
+        });
+
+        return { token: accessToken };
+    }
 }
