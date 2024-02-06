@@ -4,6 +4,9 @@ import { UserModule } from './user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/user.model';
 import 'dotenv/config';
+import { AuthGuard } from "@src/auth/strategies/jwt-strategy";
+import { APP_GUARD } from "@nestjs/core";
+import { JwtModule } from "@nestjs/jwt";
 
 @Module({
     imports: [
@@ -18,10 +21,21 @@ import 'dotenv/config';
             synchronize: true,
             logging: false,
         }),
+        JwtModule.register({
+            secret: process.env.JWT_SECRET,
+            signOptions: {
+                expiresIn: '30d'
+            }
+        }),
         AuthModule,
         UserModule,
     ],
     controllers: [],
-    providers: [],
+    providers: [
+        {
+            provide: APP_GUARD,
+            useClass: AuthGuard,
+        },
+    ],
 })
 export class AppModule {}
