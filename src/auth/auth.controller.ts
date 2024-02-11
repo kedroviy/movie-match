@@ -7,6 +7,7 @@ import { BearerToken, GetMeType, SuccessMessage } from "@src/auth/types";
 import { User } from "y/common/decorators/getData/getUserDecorator";
 import { Public } from "@src/auth/guards/public-guard";
 
+
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
