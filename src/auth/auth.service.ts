@@ -11,23 +11,26 @@ import { LoginDto } from './dto/login-dto';
 import { BearerToken, GetMeType, SuccessMessage } from "@src/auth/types";
 import { compareSync } from 'bcrypt';
 import { User } from "@src/user/user.model";
-
+import { OAuth2Client } from "google-auth-library";
+import 'dotenv/config';
 
 @Injectable()
 export class AuthService {
+    private oAuth2Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
     constructor(
         private readonly userService: UserService,
         private readonly jwtService: JwtService,
     ) {}
     
     async registration(dto: RegisterUserDto): Promise<SuccessMessage> {
-        const user = await this.userService.isUserExist({ email: dto.email, username: dto.username });
+        const user = await this.userService.hasUser({ email: dto.email, username: dto.username });
 
         if (user) {
             throw new ConflictException('User with this email or username already exists');
         }
 
-        const newUser = await this.userService.create(dto)
+        const newUser = await this.userService.createUser(dto)
 
         if (!newUser) {
             throw new BadRequestException()
@@ -68,5 +71,20 @@ export class AuthService {
         });
 
         return { token: accessToken };
+    }
+
+    async verifyIdToken(idToken: string) {
+        try {
+            const ticket = await this.oAuth2Client.verifyIdToken({
+                idToken,
+                audience: process.env.GOOGLE_CLIENT_ID,
+            });
+
+            const payload = ticket.getPayload();
+
+            return payload;
+        } catch (error) {
+            throw new Error('Invalid ID Token');
+        }
     }
 }

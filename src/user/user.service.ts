@@ -8,11 +8,9 @@ import { genSaltSync, hashSync } from 'bcrypt';
 
 @Injectable()
 export class UserService {
-    constructor(
-        @InjectRepository(User) private usersRepository: Repository<User>
-    ) {}
+    constructor(@InjectRepository(User) private usersRepository: Repository<User>) {}
     
-    async create(dto: RegisterUserDto): Promise<User> {
+    async createUser(dto: RegisterUserDto): Promise<User> {
         const hashPassword = dto?.password ? this.hashPassword(dto.password) : null
 
         const user = this.usersRepository.create({
@@ -24,18 +22,19 @@ export class UserService {
         return this.usersRepository.save(user);
     }
 
-    async isUserExist(params: CheckUserExistenceParams): Promise<boolean> {
-        if (!params.username && !params.email) {
+    async hasUser(params: CheckUserExistenceParams): Promise<boolean> {
+        const { username, email } = params
+        if (!username && !email) {
             throw new BadRequestException()
         }
     
         const condition: { username?: string; email?: string } = {};
         
-        if (params.username) {
+        if (username) {
             condition.username = params.username;
         }
 
-        if (params.email) {
+        if (email) {
             condition.email = params.email;
         }
     

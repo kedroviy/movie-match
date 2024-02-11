@@ -11,7 +11,7 @@ import { IS_PUBLIC_KEY } from "@src/auth/guards/public-guard";
 import { Reflector } from "@nestjs/core";
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class JwtStrategy implements CanActivate {
     constructor(private jwtService: JwtService, private reflector: Reflector) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {

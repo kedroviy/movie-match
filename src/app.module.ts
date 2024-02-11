@@ -4,9 +4,11 @@ import { UserModule } from './user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/user.model';
 import 'dotenv/config';
-import { AuthGuard } from "@src/auth/strategies/jwt-strategy";
+import { JwtStrategy } from "@src/auth/strategies/jwt-strategy";
 import { APP_GUARD } from "@nestjs/core";
 import { JwtModule } from "@nestjs/jwt";
+import { PassportModule } from "@nestjs/passport";
+import { UserService } from "@src/user/user.service";
 
 @Module({
     imports: [
@@ -29,12 +31,13 @@ import { JwtModule } from "@nestjs/jwt";
         }),
         AuthModule,
         UserModule,
+        PassportModule
     ],
     controllers: [],
     providers: [
         {
             provide: APP_GUARD,
-            useClass: AuthGuard,
+            useClass: JwtStrategy,
         },
     ],
 })
