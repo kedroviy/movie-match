@@ -6,15 +6,11 @@ import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import { BearerToken, GetMeType, SuccessMessage } from "@src/auth/types";
 import { User } from "y/common/decorators/getData/getUserDecorator";
 import { Public } from "@src/auth/guards/public-guard";
-import { HttpService } from "@nestjs/axios";
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-    constructor(
-        private readonly authService: AuthService,
-        private readonly httpService: HttpService,
-    ) {}
+    constructor(private readonly authService: AuthService) {}
 
     @Post('register')
     @Public()
@@ -51,7 +47,10 @@ export class AuthController {
     @Post('verify-id-token')
     @Public()
     async verifyIdToken(@Body('idToken') idToken: string) {
-        const userInfo = await this.authService.verifyIdToken(idToken);
-        return userInfo;
+        try {
+            return this.authService.googleAuthorization(idToken);
+        } catch (error) {
+            throw error
+        }
     }
 }

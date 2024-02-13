@@ -10,7 +10,7 @@ import { UserService } from '@src/user/user.service';
 import { LoginDto } from './dto/login-dto';
 import { BearerToken, GetMeType, SuccessMessage } from "@src/auth/types";
 import { compareSync } from 'bcrypt';
-import { User } from "@src/user/user.model";
+import { ClientType, User } from "@src/user/user.model";
 import { OAuth2Client } from "google-auth-library";
 import 'dotenv/config';
 
@@ -30,7 +30,7 @@ export class AuthService {
             throw new ConflictException('User with this email or username already exists');
         }
 
-        const newUser = await this.userService.createUser(dto)
+        const newUser = await this.userService.createUser(dto);
 
         if (!newUser) {
             throw new BadRequestException()
@@ -64,7 +64,6 @@ export class AuthService {
     }
 
     private async generateTokens(user: User): Promise<BearerToken> {
-
         const accessToken = this.jwtService.sign({
             id: user.id,
             email: user.email,
@@ -73,7 +72,43 @@ export class AuthService {
         return { token: accessToken };
     }
 
-    async verifyIdToken(idToken: string) {
+    async googleAuthorization(idToken: string): Promise<BearerToken> {
+        const email = await this.verifyIdToken(idToken);
+
+        if (!email) {
+            throw new BadRequestException();
+        }
+
+        const { GOOGLE } = ClientType;
+
+        const user = await this.userService.getUserByEmail(email);
+
+        if (user) {
+            if (user.client !== GOOGLE) {
+                throw new ConflictException('User with this email already exists without google provider');
+            }
+            
+            return this.generateTokens(user)
+        }
+
+        const now = new Date();
+
+        const newGoogleUser = {
+            email,
+            username: `user${now.getTime()}`,
+            client: GOOGLE
+        }
+
+        const newUser = await this.userService.createUser(newGoogleUser);
+
+        if (!newUser) {
+            throw new BadRequestException()
+        }
+
+        return this.generateTokens(newUser);
+    }
+
+    private async verifyIdToken(idToken: string): Promise<string> {
         try {
             const ticket = await this.oAuth2Client.verifyIdToken({
                 idToken,
@@ -82,9 +117,9 @@ export class AuthService {
 
             const payload = ticket.getPayload();
 
-            return payload;
+            return payload.email;
         } catch (error) {
-            throw new Error('Invalid ID Token');
+            throw new UnauthorizedException('Invalid ID Token');
         }
     }
 }

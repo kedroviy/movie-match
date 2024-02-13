@@ -6,9 +6,8 @@ import { User } from './user/user.model';
 import 'dotenv/config';
 import { JwtStrategy } from "@src/auth/strategies/jwt-strategy";
 import { APP_GUARD } from "@nestjs/core";
-import { JwtModule } from "@nestjs/jwt";
+import { JwtModule } from "./auth/auth.module"
 import { PassportModule } from "@nestjs/passport";
-import { UserService } from "@src/user/user.service";
 
 @Module({
     imports: [
@@ -23,12 +22,7 @@ import { UserService } from "@src/user/user.service";
             synchronize: true,
             logging: false,
         }),
-        JwtModule.register({
-            secret: process.env.JWT_SECRET,
-            signOptions: {
-                expiresIn: '30d'
-            }
-        }),
+        JwtModule,
         AuthModule,
         UserModule,
         PassportModule
