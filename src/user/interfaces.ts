@@ -11,3 +11,8 @@ export interface CreateUser {
     password?: string;
     client?: ClientType;
 }
+
+export interface GetUser {
+    id: string;
+    email: string;
+}

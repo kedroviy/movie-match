@@ -3,9 +3,9 @@ import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-dto';
 import { LoginDto } from './dto/login-dto';
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
-import { BearerToken, GetMeType, SuccessMessage } from "@src/auth/types";
-import { User } from "y/common/decorators/getData/getUserDecorator";
+import { BearerToken, SuccessMessage } from "@src/auth/types";
 import { Public } from "@src/auth/guards/public-guard";
+import { IdTokenDto } from "./dto/idtoken-dto";
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -19,7 +19,7 @@ export class AuthController {
         try {
             return this.authService.registration(dto);
         } catch (error) {
-            throw error
+            throw error;
         }
     }
 
@@ -30,27 +30,18 @@ export class AuthController {
         try {
             return this.authService.login(dto)
         } catch (error) {
-            throw error
-        }
-    }
-
-    @Get('me')
-    @ApiResponse({ status: 201, type: GetMeType})
-    getMe(@User() user: GetMeType) {
-        try {
-            return this.authService.getMe(user.email)
-        } catch (error) {
-            throw error
+            throw error;
         }
     }
 
     @Post('verify-id-token')
     @Public()
-    async verifyIdToken(@Body('idToken') idToken: string) {
+    @ApiResponse({ status: 201, type: BearerToken})
+    verifyIdToken(@Body() dto: IdTokenDto) {
         try {
-            return this.authService.googleAuthorization(idToken);
+            return this.authService.googleAuthorization(dto.idToken);
         } catch (error) {
-            throw error
+            throw error;
         }
     }
 }

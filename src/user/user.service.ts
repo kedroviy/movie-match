@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ClientType, User } from './user.model';
+import { User } from './user.model';
 import { CheckUserExistenceParams, CreateUser } from './interfaces';
 import { genSaltSync, hashSync } from 'bcrypt';
+import { GetMeType } from './types';
 
 @Injectable()
 export class UserService {
@@ -20,6 +21,20 @@ export class UserService {
         });
 
         return this.usersRepository.save(user);
+    }
+
+    async getMe(userEmail: string): Promise<GetMeType> {
+        const user: User = await this.getUserByEmail(userEmail)
+
+        if (!user) {
+            throw new BadRequestException()
+        }
+
+        const { id, email, username } = user
+
+        const userObj = { id, username, email }
+
+        return userObj
     }
 
     async hasUser(params: CheckUserExistenceParams): Promise<boolean> {

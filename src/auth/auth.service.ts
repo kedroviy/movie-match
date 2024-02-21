@@ -8,7 +8,7 @@ import { JwtService } from "@nestjs/jwt";
 import { RegisterUserDto } from './dto/register-dto';
 import { UserService } from '@src/user/user.service';
 import { LoginDto } from './dto/login-dto';
-import { BearerToken, GetMeType, SuccessMessage } from "@src/auth/types";
+import { BearerToken, SuccessMessage } from "@src/auth/types";
 import { compareSync } from 'bcrypt';
 import { ClientType, User } from "@src/user/user.model";
 import { OAuth2Client } from "google-auth-library";
@@ -47,20 +47,6 @@ export class AuthService {
         }
 
         return this.generateTokens(user)
-    }
-
-    async getMe(userEmail: string): Promise<GetMeType> {
-        const user: User = await this.userService.getUserByEmail(userEmail)
-
-        if (!user) {
-            throw new BadRequestException()
-        }
-
-        const { id, email, username } = user
-
-        const userObj = { id, username, email }
-
-        return userObj
     }
 
     private async generateTokens(user: User): Promise<BearerToken> {
