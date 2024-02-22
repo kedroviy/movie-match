@@ -1,6 +1,7 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Unique } from "typeorm";
 
 @Entity()
+@Unique(["key", "authorId"])
 export class Room {
     @PrimaryGeneratedColumn()
     id: number;
@@ -9,7 +10,7 @@ export class Room {
     authorId: string;
 
     @Column()
-    code: string;
+    key: string;
 
     @Column({
         type: 'timestamp',
@@ -17,3 +18,4 @@ export class Room {
     })
     createdAt: Date;
 }
+
