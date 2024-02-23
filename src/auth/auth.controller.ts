@@ -6,6 +6,7 @@ import { ApiResponse, ApiTags } from "@nestjs/swagger";
 import { BearerToken, SuccessMessage } from "@src/auth/types";
 import { Public } from "@src/auth/guards/public-guard";
 import { IdTokenDto } from "./dto/idtoken-dto";
+import { UserAgent } from "y/common/decorators/getData/userAgent";
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -26,9 +27,9 @@ export class AuthController {
     @Post('login')
     @Public()
     @ApiResponse({ status: 201, type: BearerToken})
-    login(@Body() dto: LoginDto) {
+    login(@Body() dto: LoginDto, @UserAgent() agent: string) {
         try {
-            return this.authService.login(dto)
+            return this.authService.login(dto, agent)
         } catch (error) {
             throw error;
         }

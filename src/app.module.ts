@@ -11,6 +11,8 @@ import { PassportModule } from "@nestjs/passport";
 import { MatchModule } from './match/match.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { Room } from "@src/rooms/rooms.model";
+import { AttemptModule } from './attempt/attempt.module';
+import { Attempt } from "@src/attempt/attempt.model";
 
 @Module({
     imports: [
@@ -20,7 +22,7 @@ import { Room } from "@src/rooms/rooms.model";
             port: Number(process.env.POSTGRES_PORT),
             password: process.env.POSTGRES_PASSWORD,
             username: process.env.POSTGRES_USERNAME,
-            entities: [User, Room],
+            entities: [User, Room, Attempt],
             database: process.env.POSTGRES_DATABASE,
             synchronize: true,
             logging: false,
@@ -30,7 +32,8 @@ import { Room } from "@src/rooms/rooms.model";
         UserModule,
         PassportModule,
         MatchModule,
-        RoomsModule
+        RoomsModule,
+        AttemptModule
     ],
     controllers: [],
     providers: [

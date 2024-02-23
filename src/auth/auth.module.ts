@@ -6,11 +6,13 @@ import { JwtModule } from "@nestjs/jwt";
 import 'dotenv/config';
 import { HttpModule } from "@nestjs/axios";
 import { UserService } from "@src/user/user.service";
+import { AttemptModule } from "@src/attempt/attempt.module";
 
 @Module({
     imports: [
         UserModule,
         HttpModule,
+        AttemptModule,
         JwtModule.register({
             secret: process.env.JWT_SECRET,
             signOptions: {

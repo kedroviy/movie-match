@@ -13,6 +13,8 @@ import { compareSync } from 'bcrypt';
 import { ClientType, User } from "@src/user/user.model";
 import { OAuth2Client } from "google-auth-library";
 import 'dotenv/config';
+import { AttemptService } from "@src/attempt/attempt.service";
+import { AttemptType } from "@src/attempt/attempt.model";
 
 @Injectable()
 export class AuthService {
@@ -21,6 +23,7 @@ export class AuthService {
     constructor(
         private readonly userService: UserService,
         private readonly jwtService: JwtService,
+        private readonly attemptService: AttemptService,
     ) {}
     
     async registration(dto: RegisterUserDto): Promise<SuccessMessage> {
@@ -42,14 +45,27 @@ export class AuthService {
         return { message: 'User successfully registered.' }
     }
 
-    async login(dto: LoginDto): Promise<BearerToken> {
+    async login(dto: LoginDto, agent: string): Promise<BearerToken> {
         const user = await this.userService.getUserByEmail(dto.email)
 
-        if (!user || !compareSync(dto.password, user.password)) {
+        if (user) {
+            const attemptCheck = {
+                userId: String(user.id),
+                where: AttemptType.LOGIN,
+                userAgent: agent
+            };
+
+            await this.attemptService.check(attemptCheck);
+
+            if (user.client || !compareSync(dto.password, user.password)) {
+                throw new UnauthorizedException('Incorrect email or password.');
+            }
+
+            await this.attemptService.remove(attemptCheck);
+            return this.generateTokens(user)
+        } else {
             throw new UnauthorizedException('Incorrect email or password.');
         }
-
-        return this.generateTokens(user)
     }
 
     private async generateTokens(user: User): Promise<BearerToken> {
