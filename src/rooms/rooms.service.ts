@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { FindOneOptions, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { Room } from "@src/rooms/rooms.model";
 
 @Injectable()
