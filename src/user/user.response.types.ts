@@ -1,12 +1,12 @@
 import { ApiProperty } from "@nestjs/swagger"
 
 export class GetMeType {
-    @ApiProperty({ required: true })
+    @ApiProperty()
     id: number
 
-    @ApiProperty({ required: true })
+    @ApiProperty()
     email: string
 
-    @ApiProperty({ required: true })
+    @ApiProperty()
     username: string
 }

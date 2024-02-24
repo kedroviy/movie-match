@@ -1,19 +1,20 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Room } from "@src/rooms/rooms.model";
+import { RoomKeyType } from "@src/rooms/rooms.interfeces";
 
 @Injectable()
 export class RoomsService {
 
     constructor(@InjectRepository(Room) private roomRepository: Repository<Room>) {}
 
-    async createRoom(userId: string): Promise<string> {
+    async createRoom(userId: string): Promise<RoomKeyType> {
 
         const room = await this.getUsersRooms(userId);
 
         if (room) {
-            throw new NotFoundException('Room already exists for this user');
+            throw new ConflictException('Room already exists for this user');
         }
 
         const key = this.generateKey();
@@ -25,9 +26,9 @@ export class RoomsService {
 
         try {
             await this.roomRepository.save(newRoom);
-            return newRoom.key;
+            return { key: newRoom.key };
         } catch (error) {
-            throw new NotFoundException('Failed to create room: ' + error.message);
+            throw new BadRequestException('Failed to create room: ' + error.message);
         }
     }
 

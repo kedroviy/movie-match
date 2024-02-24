@@ -1,11 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
 
 export class SuccessMessage {
-    @ApiProperty({ required: true })
+    @ApiProperty()
     message: string
 }
 
 export class BearerToken {
-    @ApiProperty({ required: true })
+    @ApiProperty()
     token: string
 }

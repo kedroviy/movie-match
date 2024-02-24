@@ -1,14 +1,14 @@
 import {
     BadRequestException,
     ConflictException,
-    Injectable,
+    Injectable, NotFoundException,
     UnauthorizedException
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { RegisterUserDto } from './dto/register-dto';
 import { UserService } from '@src/user/user.service';
 import { LoginDto } from './dto/login-dto';
-import { BearerToken, SuccessMessage } from "@src/auth/types";
+import { BearerToken, SuccessMessage } from "@src/auth/auth.response.types";
 import { compareSync } from 'bcrypt';
 import { ClientType, User } from "@src/user/user.model";
 import { OAuth2Client } from "google-auth-library";
@@ -18,7 +18,8 @@ import { AttemptType } from "@src/attempt/attempt.model";
 
 @Injectable()
 export class AuthService {
-    private oAuth2Client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    private googleClientId = process.env.GOOGLE_CLIENT_ID
+    private oAuth2Client = new OAuth2Client(this.googleClientId);
 
     constructor(
         private readonly userService: UserService,
@@ -39,7 +40,7 @@ export class AuthService {
         const newUser = await this.userService.createUser(dto);
 
         if (!newUser) {
-            throw new BadRequestException()
+            throw new BadRequestException("Something went wrong.")
         }
 
         return { message: 'User successfully registered.' }
@@ -81,7 +82,7 @@ export class AuthService {
         const email = await this.verifyIdToken(idToken);
 
         if (!email) {
-            throw new BadRequestException();
+            throw new NotFoundException('invalid google token.');
         }
 
         const { GOOGLE } = ClientType;
@@ -90,7 +91,7 @@ export class AuthService {
 
         if (user) {
             if (user.client !== GOOGLE) {
-                throw new ConflictException('User with this email already exists without google provider');
+                throw new ConflictException('User with this email already exists without google provider.');
             }
             
             return this.generateTokens(user)
@@ -107,7 +108,7 @@ export class AuthService {
         const newUser = await this.userService.createUser(newGoogleUser);
 
         if (!newUser) {
-            throw new BadRequestException()
+            throw new BadRequestException("Something went wrong.")
         }
 
         return this.generateTokens(newUser);
@@ -117,7 +118,7 @@ export class AuthService {
         try {
             const ticket = await this.oAuth2Client.verifyIdToken({
                 idToken,
-                audience: process.env.GOOGLE_CLIENT_ID,
+                audience: this.googleClientId,
             });
 
             const payload = ticket.getPayload();

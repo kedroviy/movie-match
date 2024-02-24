@@ -1,10 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.model';
-import { CheckUserExistenceParams, CreateUser } from './interfaces';
+import { CheckUserExistenceParams, CreateUser } from './user.interfaces';
 import { genSaltSync, hashSync } from 'bcrypt';
-import { GetMeType } from './types';
+import { GetMeType } from './user.response.types';
 
 @Injectable()
 export class UserService {
@@ -27,7 +27,7 @@ export class UserService {
         const user: User = await this.getUserByEmail(userEmail)
 
         if (!user) {
-            throw new BadRequestException()
+            throw new NotFoundException("User does not found.")
         }
 
         const { id, email, username } = user
