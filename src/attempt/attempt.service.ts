@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import { Attempt } from "@src/attempt/attempt.model";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
