@@ -3,10 +3,9 @@ import { FavoriteService } from './favorite.service';
 import { User } from "y/common/decorators/getData/getUserDecorator";
 import { GetUser } from "@src/user/user.interfaces";
 import {
-    ApiBadRequestResponse,
     ApiBearerAuth,
     ApiConflictResponse,
-    ApiCreatedResponse,
+    ApiCreatedResponse, ApiInternalServerErrorResponse,
     ApiNotFoundResponse, ApiTags
 } from "@nestjs/swagger";
 import { MyFavoriteResponse } from "@src/favorite/favorite.response.types";
@@ -25,6 +24,7 @@ export class FavoriteController {
 
     @Get()
     @ApiNotFoundResponse({ description: "User's favorites not found" })
+    @ApiInternalServerErrorResponse({ description: "Failed to fetch movie information" })
     @ApiCreatedResponse({ type: [MyFavoriteResponse] })
     getMyFavorite(@User() user: GetUser) {
         return this.favoriteService.getMyFavorite(user.id);

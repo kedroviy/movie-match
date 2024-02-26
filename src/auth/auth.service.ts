@@ -58,7 +58,7 @@ export class AuthService {
 
             await this.attemptService.check(attemptCheck);
 
-            if (user.client || !compareSync(dto.password, user.password)) {
+            if (user.client !== "NONE" || !compareSync(dto.password, user.password)) {
                 throw new UnauthorizedException('Incorrect email or password.');
             }
 

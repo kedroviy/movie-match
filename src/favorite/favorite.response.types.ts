@@ -2,5 +2,11 @@ import { ApiProperty } from "@nestjs/swagger";
 
 export class MyFavoriteResponse {
     @ApiProperty()
-    movieId: string
+    id: string;
+
+    @ApiProperty()
+    name: string;
+
+    @ApiProperty()
+    posterUrl: string;
 }
