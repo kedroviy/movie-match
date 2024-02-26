@@ -22,10 +22,6 @@ export class RoomsController {
     @ApiBadRequestResponse({ description: 'Failed to create room' })
     createRoom(@User() user: GetUser) {
         const { id } = user;
-        try {
-            return this.roomsService.createRoom(id);
-        } catch (error) {
-            throw error;
-        }
+        return this.roomsService.createRoom(id);
     }
 }

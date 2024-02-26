@@ -13,6 +13,9 @@ import { RoomsModule } from './rooms/rooms.module';
 import { Room } from "@src/rooms/rooms.model";
 import { AttemptModule } from './attempt/attempt.module';
 import { Attempt } from "@src/attempt/attempt.model";
+import { MovieModule } from './movie/movie.module';
+import { FavoriteModule } from './favorite/favorite.module';
+import { Favorite } from "@src/favorite/favorite.model";
 
 @Module({
     imports: [
@@ -22,7 +25,7 @@ import { Attempt } from "@src/attempt/attempt.model";
             port: Number(process.env.POSTGRES_PORT),
             password: process.env.POSTGRES_PASSWORD,
             username: process.env.POSTGRES_USERNAME,
-            entities: [User, Room, Attempt],
+            entities: [User, Room, Attempt, Favorite],
             database: process.env.POSTGRES_DATABASE,
             synchronize: true,
             logging: false,
@@ -33,7 +36,9 @@ import { Attempt } from "@src/attempt/attempt.model";
         PassportModule,
         MatchModule,
         RoomsModule,
-        AttemptModule
+        AttemptModule,
+        MovieModule,
+        FavoriteModule
     ],
     controllers: [],
     providers: [

@@ -25,11 +25,7 @@ export class AuthController {
     @ApiBadRequestResponse({ description: "Something went wrong." })
     @ApiConflictResponse({ description: "User with this email or username already exists" })
     register(@Body() dto: RegisterUserDto) {
-        try {
-            return this.authService.registration(dto);
-        } catch (error) {
-            throw error;
-        }
+        return this.authService.registration(dto);
     }
 
     @Post('login')
@@ -38,11 +34,7 @@ export class AuthController {
     @ApiForbiddenResponse({ description: "Exceeded the maximum attempts. Please try again in 59s." })
     @ApiUnauthorizedResponse({ description: "Incorrect email or password." })
     login(@Body() dto: LoginDto, @UserAgent() agent: string) {
-        try {
-            return this.authService.login(dto, agent)
-        } catch (error) {
-            throw error;
-        }
+        return this.authService.login(dto, agent)
     }
 
     @Post('verify-id-token')
@@ -52,10 +44,6 @@ export class AuthController {
     @ApiConflictResponse({ description: "User with this email already exists without google provider." })
     @ApiBadRequestResponse({ description: "Something went wrong." })
     verifyIdToken(@Body() dto: IdTokenDto) {
-        try {
-            return this.authService.googleAuthorization(dto.idToken);
-        } catch (error) {
-            throw error;
-        }
+        return this.authService.googleAuthorization(dto.idToken);
     }
 }

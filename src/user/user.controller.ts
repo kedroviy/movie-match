@@ -15,10 +15,6 @@ export class UserController {
     @ApiNotFoundResponse({ description: "User does not found." })
     @ApiBearerAuth()
     getMe(@User() user: GetUser) {
-        try {
-            return this.userService.getMe(user.email)
-        } catch (error) {
-            throw error;
-        }
+        return this.userService.getMe(user.email)
     }
 }

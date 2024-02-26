@@ -43,7 +43,7 @@ export class AuthService {
             throw new BadRequestException("Something went wrong.")
         }
 
-        return { message: 'User successfully registered.' }
+        return { message: 'User successfully registered.' };
     }
 
     async login(dto: LoginDto, agent: string): Promise<BearerToken> {
@@ -63,13 +63,13 @@ export class AuthService {
             }
 
             await this.attemptService.remove(attemptCheck);
-            return this.generateTokens(user)
+            return this.generateToken(user)
         } else {
             throw new UnauthorizedException('Incorrect email or password.');
         }
     }
 
-    private async generateTokens(user: User): Promise<BearerToken> {
+    private async generateToken(user: User): Promise<BearerToken> {
         const accessToken = this.jwtService.sign({
             id: user.id,
             email: user.email,
@@ -93,8 +93,8 @@ export class AuthService {
             if (user.client !== GOOGLE) {
                 throw new ConflictException('User with this email already exists without google provider.');
             }
-            
-            return this.generateTokens(user)
+
+            return this.generateToken(user)
         }
 
         const now = new Date();
@@ -111,7 +111,7 @@ export class AuthService {
             throw new BadRequestException("Something went wrong.")
         }
 
-        return this.generateTokens(newUser);
+        return this.generateToken(newUser);
     }
 
     private async verifyIdToken(idToken: string): Promise<string> {
