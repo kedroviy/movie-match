@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
+import { User } from "@src/user/user.model";
 
 @Entity()
 export class Favorite {
@@ -6,8 +7,8 @@ export class Favorite {
     id: number;
 
     @Column()
-    userId: string;
-
-    @Column()
     movieId: string;
+
+    @ManyToOne(() => User, user => user.favorites, { onDelete: 'CASCADE' })
+    user: User;
 }

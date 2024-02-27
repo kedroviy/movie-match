@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany } from "typeorm";
+import { Favorite } from "@src/favorite/favorite.model";
 
 export enum ClientType {
     GOOGLE = 'GOOGLE',
@@ -26,4 +27,7 @@ export class User {
         default: ClientType.NONE,
     })
     client: ClientType;
+
+    @OneToMany(() => Favorite, favorite => favorite.user)
+    favorites: Favorite[];
 }

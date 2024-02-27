@@ -17,6 +17,7 @@ export class FavoriteController {
 
     @Post('add/:movieId')
     @ApiConflictResponse({ description: "Movie is already in favorites" })
+    @ApiNotFoundResponse({ description: "User is not found." })
     @ApiBearerAuth()
     addFavorite(@Param('movieId') movieId: string, @User() user: GetUser) {
         return this.favoriteService.addFavorite(movieId, user.id);
@@ -25,6 +26,7 @@ export class FavoriteController {
     @Get()
     @ApiNotFoundResponse({ description: "User's favorites not found" })
     @ApiInternalServerErrorResponse({ description: "Failed to fetch movie information" })
+    @ApiNotFoundResponse({ description: "User is not found." })
     @ApiCreatedResponse({ type: [MyFavoriteResponse] })
     getMyFavorite(@User() user: GetUser) {
         return this.favoriteService.getMyFavorite(user.id);
@@ -32,6 +34,7 @@ export class FavoriteController {
 
     @Delete('delete/:movieId')
     @ApiNotFoundResponse({ description: "Movie has not found in favorites" })
+    @ApiNotFoundResponse({ description: "User is not found." })
     deleteFromFavorite(@Param('movieId') movieId: string, @User() user: GetUser) {
         return this.favoriteService.deleteFromFavorite(movieId, user.id);
     }

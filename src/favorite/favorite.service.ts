@@ -3,28 +3,43 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Favorite } from "@src/favorite/favorite.model";
 import { Repository } from "typeorm";
 import { MovieService } from "@src/movie/movie.service";
+import { UserService } from "@src/user/user.service";
+import { User } from "@src/user/user.model";
 
 @Injectable()
 export class FavoriteService {
     constructor(
         @InjectRepository(Favorite) private favoriteRepository: Repository<Favorite>,
         private readonly movieService: MovieService,
+        private readonly userService: UserService
     ) {}
 
     async addFavorite(movieId: string, userId: string): Promise<void> {
-        const isFavorite = await this.isMovieInFavorites(movieId, userId);
+        const user: User = await this.userService.getUserById(userId);
+
+        if (!user) {
+            throw new NotFoundException("User is not found.")
+        }
+
+        const isFavorite = await this.isMovieInFavorites(movieId, user);
 
         if (isFavorite) {
             throw new ConflictException("Movie is already in favorites");
         }
 
-        const favorite = this.favoriteRepository.create({ userId, movieId });
+        const favorite = this.favoriteRepository.create({ user, movieId });
 
         await this.favoriteRepository.save(favorite);
     }
 
     async getMyFavorite(userId: string) {
-        const myFavorite = await this.favoriteRepository.find({ where: { userId } });
+        const user: User = await this.userService.getUserById(userId);
+
+        if (!user) {
+            throw new NotFoundException("User is not found.")
+        }
+
+        const myFavorite = await this.favoriteRepository.find({ where: { user } });
 
         if (!myFavorite) {
             throw new NotFoundException("User's favorites not found");
@@ -45,17 +60,23 @@ export class FavoriteService {
     }
 
     async deleteFromFavorite(movieId: string, userId: string): Promise<void> {
-        const isFavorite = await this.isMovieInFavorites(movieId, userId);
+        const user: User = await this.userService.getUserById(userId);
 
-        if (isFavorite) {
+        if (!user) {
+            throw new NotFoundException("User is not found.")
+        }
+
+        const isFavorite = await this.isMovieInFavorites(movieId, user);
+
+        if (!isFavorite) {
             throw new ConflictException("Movie has not found in favorites");
         }
 
-        await this.favoriteRepository.delete({ movieId, userId });
+        await this.favoriteRepository.delete({ movieId, user });
     }
 
-    private async isMovieInFavorites(movieId: string, userId: string): Promise<boolean> {
-        const favorite = await this.favoriteRepository.findOne({ where: { movieId, userId } });
+    private async isMovieInFavorites(movieId: string, user: User): Promise<boolean> {
+        const favorite = await this.favoriteRepository.findOne({ where: { movieId, user } });
         return !!favorite;
     }
 }

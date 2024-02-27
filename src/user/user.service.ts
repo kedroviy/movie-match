@@ -61,7 +61,10 @@ export class UserService {
     async getUserByEmail(email: string): Promise<User> {
         return this.usersRepository.findOne({ where: { email } });
     }
-    
+
+    async getUserById(userId: string): Promise<User> {
+        return this.usersRepository.findOne({ where: { id: Number(userId) } });
+    }
 
     private hashPassword(password: string): string {
         return hashSync(password, genSaltSync(10))
