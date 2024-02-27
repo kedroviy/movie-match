@@ -16,6 +16,7 @@ import { Attempt } from "@src/attempt/attempt.model";
 import { MovieModule } from './movie/movie.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { Favorite } from "@src/favorite/favorite.model";
+import { Match } from "@src/match/match.model";
 
 @Module({
     imports: [
@@ -25,7 +26,7 @@ import { Favorite } from "@src/favorite/favorite.model";
             port: Number(process.env.POSTGRES_PORT),
             password: process.env.POSTGRES_PASSWORD,
             username: process.env.POSTGRES_USERNAME,
-            entities: [User, Room, Attempt, Favorite],
+            entities: [User, Room, Attempt, Favorite, Match],
             database: process.env.POSTGRES_DATABASE,
             synchronize: true,
             logging: false,

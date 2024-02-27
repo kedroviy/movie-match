@@ -1,15 +1,15 @@
 import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
 import { MatchService } from './match.service';
-import { Socket } from 'socket.io';
+import { SocketBodyInterface } from "@src/match/match.interfaces";
+import { Socket } from "socket.io";
 
 @WebSocketGateway()
 export class MatchGateway {
+    @WebSocketServer() server: Socket;
     constructor(private readonly matchService: MatchService) { }
 
-    @WebSocketServer() server: Socket;
-
-    @SubscribeMessage('events1')
-    handleEvent(@MessageBody() body: any) {
-        this.server.emit(`events${1}`, body);
+    @SubscribeMessage('feedback')
+    feedbackMovie(@MessageBody() body: SocketBodyInterface) {
+        return this.matchService.feedbackMovie(body, this.server)
     }
 }

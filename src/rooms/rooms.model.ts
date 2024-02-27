@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany } from "typeorm";
+import { Match } from "@src/match/match.model";
 
 @Entity()
 @Unique(["key", "authorId"])
@@ -17,5 +18,8 @@ export class Room {
         default: () => 'CURRENT_TIMESTAMP',
     })
     createdAt: Date;
+
+    @OneToMany(() => Match, match => match.room, { onDelete: 'CASCADE' })
+    matches: Match[];
 }
 
