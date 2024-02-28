@@ -1,33 +1,23 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { Socket } from "socket.io";
 import { SocketBodyInterface } from "@src/match/match.interfaces";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Match } from "@src/match/match.model";
 import { Repository } from "typeorm";
-import { JwtService } from "@nestjs/jwt";
+import { GetUser } from "@src/user/user.interfaces";
 
 @Injectable()
 export class MatchService {
-    constructor(
-        @InjectRepository(Match) private matchRepository: Repository<Match>,
-        private jwtService: JwtService
-    ) {}
+    constructor(@InjectRepository(Match) private matchRepository: Repository<Match>) {}
 
-    async feedbackMovie(body: SocketBodyInterface, server: Socket) {
-        const { token, room, movieId } = body;
+    async feedbackMovie(body: SocketBodyInterface, user: GetUser, server: Socket) {
 
-        try {
-            const payload = await this.jwtService.verifyAsync(token, {
-                secret: process.env.JWT_SECRET
-            });
-
-            if (!payload) {
-                throw new BadRequestException('Invalid token');
-            }
-
-            return server.emit(`room${room}`, body);
-        } catch (error) {
-            return server.emit(`room${room}`, "Fuck off");
+        if (!user || !user.id) {
+            return null;
         }
+
+        const { room, movieId } = body;
+
+        server.emit(`room${room}`, "Fuck off");
     }
 }
