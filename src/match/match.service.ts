@@ -10,14 +10,5 @@ import { GetUser } from "@src/user/user.interfaces";
 export class MatchService {
     constructor(@InjectRepository(Match) private matchRepository: Repository<Match>) {}
 
-    async feedbackMovie(body: SocketBodyInterface, user: GetUser, server: Socket) {
-
-        if (!user || !user.id) {
-            return null;
-        }
-
-        const { room, movieId } = body;
-
-        server.emit(`room${room}`, "Fuck off");
-    }
+    async feedbackMovie() {}
 }
