@@ -1,4 +1,5 @@
 import {
+    ConnectedSocket,
     MessageBody,
     OnGatewayConnection,
     OnGatewayDisconnect,
@@ -25,7 +26,13 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         console.log('WebSocket gateway initialized');
     }
 
-    handleConnection(client: Socket, ...args: any[]) {
+    async handleConnection(client: Socket, ...args: any[]) {
+        const token = client.handshake.headers.authorization;
+        const auth = await this.matchService.verifyToken(token)
+        if (!token || !auth) {
+            client.disconnect(true); 
+        }
+        client.handshake.auth.user = auth;
         console.log(`Client connected: ${client.id}`);
     }
 
@@ -34,20 +41,12 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     }
 
     @SubscribeMessage('feedback')
-    @UseGuards(SocketJwtGuard)
-    feedbackMovie(@MessageBody() body: SocketBodyInterface, @UserWS() user: GetUser, client: Socket) {
+    feedbackMovie(@MessageBody() body: any, @UserWS() user: GetUser) {
         const { room, movieId } = body;
 
-        if (user && user.id) {
-            this.server.socketsJoin(`room${room}`);
-
-            console.log(this.server.in(room))
-
-            this.server.to(`room${room}`).emit(`room${room}`, "Authorized user message");
-        } else {
-            console.log('Unauthorized user');
-            client.emit('error', 'Unauthorized');
-        }
+        console.log(user)
+    
+        this.server.socketsJoin(`room${room}`);
+        this.server.to(`room${room}`).emit(`room${room}`, "Authorized user message");
     }
-
 }

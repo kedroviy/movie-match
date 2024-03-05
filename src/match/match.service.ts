@@ -1,14 +1,26 @@
 import { Injectable } from "@nestjs/common";
-import { Socket } from "socket.io";
-import { SocketBodyInterface } from "@src/match/match.interfaces";
+import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Match } from "@src/match/match.model";
 import { Repository } from "typeorm";
-import { GetUser } from "@src/user/user.interfaces";
 
 @Injectable()
 export class MatchService {
-    constructor(@InjectRepository(Match) private matchRepository: Repository<Match>) {}
+    constructor(
+        @InjectRepository(Match) private matchRepository: Repository<Match>,
+        private readonly jwtService: JwtService,
+    ) { }
 
-    async feedbackMovie() {}
+    async feedbackMovie() { }
+    
+    async verifyToken(token: string): Promise<boolean> {
+        try {
+            const payload = await this.jwtService.verifyAsync(token, {
+                secret: process.env.JWT_SECRET
+            });
+            return payload;
+        } catch (error) {
+            return false;
+        }
+    }
 }
