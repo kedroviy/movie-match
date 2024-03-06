@@ -44,6 +44,12 @@ export class RoomsService {
         await this.roomRepository.remove(room);
     }
 
+    async getRoomByKey(key: string): Promise<Room> {
+        return this.roomRepository.findOne({
+            where: { key }
+        })
+    }
+
     private async getUsersRooms(userId: string): Promise<Room> {
         return this.roomRepository.findOne({
             where: { authorId: userId }

@@ -8,6 +8,9 @@ import { Room } from "@src/rooms/rooms.model";
   imports: [
     TypeOrmModule.forFeature([Room])
   ],
+  exports: [
+    RoomsService
+  ],
   controllers: [RoomsController],
   providers: [RoomsService],
 })

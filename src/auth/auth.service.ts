@@ -28,13 +28,10 @@ export class AuthService {
     ) {}
     
     async registration(dto: RegisterUserDto): Promise<SuccessMessage> {
-        const [checkUserEmail, checkUserName] = await Promise.all([
-            this.userService.hasUser({ email: dto.email }),
-            this.userService.hasUser({ username: dto.username })
-        ]);
+        const user = await this.userService.getUserByEmail(dto.email);
 
-        if (checkUserEmail || checkUserName) {
-            throw new ConflictException('User with this email or username already exists');
+        if (user) {
+            throw new ConflictException('User with this email already exists');
         }
 
         const newUser = await this.userService.createUser(dto);

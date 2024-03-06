@@ -10,13 +10,6 @@ export class RegisterUserDto {
     readonly email: string;
 
     @ApiProperty({
-        example: 'user12345',
-        required: true
-    })
-    @IsNotEmpty()
-    readonly username: string;
-
-    @ApiProperty({
         example: 'Qwerty12345+',
         required: true
     })

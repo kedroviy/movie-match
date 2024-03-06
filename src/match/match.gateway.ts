@@ -1,5 +1,4 @@
 import {
-    ConnectedSocket,
     MessageBody,
     OnGatewayConnection,
     OnGatewayDisconnect,
@@ -9,18 +8,20 @@ import {
     WebSocketServer
 } from "@nestjs/websockets";
 import { MatchService } from './match.service';
-import { SocketBodyInterface } from "@src/match/match.interfaces";
 import { Socket, Server } from "socket.io";
-import { UseGuards } from "@nestjs/common";
-import { SocketJwtGuard } from "@src/match/guards/socket-jwt-guard";
 import { UserWS } from "y/common/decorators/getData/getUserDecoratorWS";
 import { GetUser } from "@src/user/user.interfaces";
+import { SocketBodyInterface } from "./match.interfaces";
+import { RoomsService } from "@src/rooms/rooms.service";
 
 @WebSocketGateway()
 export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
 
-    constructor(private readonly matchService: MatchService) { }
+    constructor(
+        private readonly matchService: MatchService,
+        private readonly roomsService: RoomsService
+    ) { }
 
     afterInit(server: Server) {
         console.log('WebSocket gateway initialized');
@@ -28,11 +29,11 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
     async handleConnection(client: Socket, ...args: any[]) {
         const token = client.handshake.headers.authorization;
-        const auth = await this.matchService.verifyToken(token)
-        if (!token || !auth) {
+        const userVerify = await this.matchService.verifyToken(token);
+        if (!token || !userVerify) {
             client.disconnect(true); 
         }
-        client.handshake.auth.user = auth;
+        client.handshake.auth.user = userVerify;
         console.log(`Client connected: ${client.id}`);
     }
 
@@ -41,12 +42,17 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     }
 
     @SubscribeMessage('feedback')
-    feedbackMovie(@MessageBody() body: any, @UserWS() user: GetUser) {
-        const { room, movieId } = body;
+    async feedbackMovie(@MessageBody() body: SocketBodyInterface, @UserWS() user: GetUser) {
+        const { roomKey, movieId } = body;
 
-        console.log(user)
-    
-        this.server.socketsJoin(`room${room}`);
-        this.server.to(`room${room}`).emit(`room${room}`, "Authorized user message");
+        const room = await this.roomsService.getRoomByKey(roomKey);
+
+        if (room) {
+            return this.server.socketsJoin(`room${roomKey}`);
+        }
+
+        // this.matchService.feedbackMovie(body, user.id, room)
+
+        this.server.to(`room${roomKey}`).emit(`room${roomKey}`, "Authorized user message");
     }
 }

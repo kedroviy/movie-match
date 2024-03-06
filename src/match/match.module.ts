@@ -4,11 +4,13 @@ import { MatchGateway } from './match.gateway';
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Match } from "@src/match/match.model";
 import { JwtModule } from "@src/auth/auth.module";
+import { RoomsModule } from '@src/rooms/rooms.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Match]),
-        JwtModule
+        JwtModule,
+        RoomsModule
     ],
     providers: [MatchGateway, MatchService],
 })

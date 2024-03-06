@@ -1,8 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.model';
-import { CheckUserExistenceParams, CreateUser } from './user.interfaces';
+import { CreateUser } from './user.interfaces';
 import { genSaltSync, hashSync } from 'bcrypt';
 import { GetMeType } from './user.response.types';
 
@@ -11,10 +11,11 @@ export class UserService {
     constructor(@InjectRepository(User) private usersRepository: Repository<User>) {}
     
     async createUser(dto: CreateUser): Promise<User> {
-        const hashPassword = dto?.password ? this.hashPassword(dto.password) : ''
+        const hashPassword = dto?.password ? this.hashPassword(dto.password) : '';
+        const now = new Date();
 
         const user = this.usersRepository.create({
-            username: dto.username,
+            username: `user${now.getTime()}`,
             email: dto.email,
             password: hashPassword,
             client: dto.client && dto.client
@@ -35,27 +36,6 @@ export class UserService {
         const userObj = { id, username, email }
 
         return userObj
-    }
-
-    async hasUser(params: CheckUserExistenceParams): Promise<boolean> {
-        const { username, email } = params
-        if (!username && !email) {
-            throw new BadRequestException()
-        }
-    
-        const condition: { username?: string; email?: string } = {};
-        
-        if (username) {
-            condition.username = params.username;
-        }
-
-        if (email) {
-            condition.email = params.email;
-        }
-    
-        const user = await this.usersRepository.findOne({ where: condition });
-    
-        return !!user;
     }
 
     async getUserByEmail(email: string): Promise<User> {
