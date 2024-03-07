@@ -1,4 +1,5 @@
 import {
+    ConnectedSocket,
     MessageBody,
     OnGatewayConnection,
     OnGatewayDisconnect,
@@ -41,15 +42,20 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         console.log(`Client disconnected: ${client.id}`);
     }
 
-    @SubscribeMessage('feedback')
-    async feedbackMovie(@MessageBody() body: SocketBodyInterface, @UserWS() user: GetUser) {
-        const { roomKey, movieId } = body;
-
-        const room = await this.roomsService.getRoomByKey(roomKey);
+    @SubscribeMessage('roomconnect')
+    async connectToRoom(client: Socket) {
+        const roomKey = client.handshake.headers.room;
+        const room = await this.roomsService.getRoomByKey(roomKey as string);
 
         if (room) {
-            return this.server.socketsJoin(`room${roomKey}`);
+            this.server.socketsJoin(`room${roomKey}`);
         }
+    }
+
+    @SubscribeMessage('feedback')
+    async feedbackMovie(@MessageBody() body: SocketBodyInterface, @UserWS() user: GetUser, @ConnectedSocket() client: Socket) {
+        const { movieId } = body;
+        const roomKey = client.handshake.headers.room;
 
         // this.matchService.feedbackMovie(body, user.id, room)
 
