@@ -22,7 +22,7 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     constructor(
         private readonly matchService: MatchService,
         private readonly roomsService: RoomsService
-    ) { }
+    ) {}
 
     afterInit(server: Server) {
         console.log('WebSocket gateway initialized');
@@ -42,23 +42,19 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         console.log(`Client disconnected: ${client.id}`);
     }
 
-    @SubscribeMessage('roomconnect')
-    async connectToRoom(client: Socket) {
+    @SubscribeMessage('feedback')
+    async feedbackMovie(@MessageBody() body: SocketBodyInterface, @UserWS() user: GetUser, @ConnectedSocket() client: Socket) {
         const roomKey = client.handshake.headers.room;
         const room = await this.roomsService.getRoomByKey(roomKey as string);
 
         if (room) {
-            this.server.socketsJoin(`room${roomKey}`);
+            await this.matchService.feedbackMovie(body, user.id, room);
+
+            const checkByMatch = await this.matchService.checkByMatch(room);
+
+            if (checkByMatch) {
+                this.server.emit(`room${roomKey}`, checkByMatch);
+            }
         }
-    }
-
-    @SubscribeMessage('feedback')
-    async feedbackMovie(@MessageBody() body: SocketBodyInterface, @UserWS() user: GetUser, @ConnectedSocket() client: Socket) {
-        const { movieId } = body;
-        const roomKey = client.handshake.headers.room;
-
-        // this.matchService.feedbackMovie(body, user.id, room)
-
-        this.server.to(`room${roomKey}`).emit(`room${roomKey}`, "Authorized user message");
     }
 }
