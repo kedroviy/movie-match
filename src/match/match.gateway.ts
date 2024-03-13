@@ -12,7 +12,7 @@ import { MatchService } from './match.service';
 import { Socket, Server } from "socket.io";
 import { UserWS } from "y/common/decorators/getData/getUserDecoratorWS";
 import { GetUser } from "@src/user/user.interfaces";
-import { SocketBodyInterface } from "./match.interfaces";
+import { SocketBodyInterface, SocketBodyMovieIdInterface } from "./match.interfaces";
 import { RoomsService } from "@src/rooms/rooms.service";
 
 @WebSocketGateway()
@@ -55,6 +55,17 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
             if (checkByMatch) {
                 this.server.emit(`room${roomKey}`, checkByMatch);
             }
+        }
+    }
+
+    @SubscribeMessage('notmatch')
+    async notLikeMatch(@MessageBody() body: SocketBodyMovieIdInterface, @ConnectedSocket() client: Socket) {
+        const roomKey = client.handshake.headers.room;
+        const room = await this.roomsService.getRoomByKey(roomKey as string);
+
+        if (room) {
+            await this.matchService.deleteMovieFromRoom(body.movieId, room)
+            this.server.emit(`room${roomKey}`, 'test');
         }
     }
 }

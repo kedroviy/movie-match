@@ -14,9 +14,13 @@ export class MatchService {
         private readonly jwtService: JwtService
     ) { }
 
-    feedbackMovie(body: SocketBodyInterface, userId: string, room: Room): void {
+    async feedbackMovie(body: SocketBodyInterface, userId: string, room: Room): Promise<void> {
         const { movieId } = body
-        this.matchRepository.save({ movieId, room, userId });
+        await this.matchRepository.save({ movieId, room, userId });
+    }
+
+    async deleteMovieFromRoom(movieId: string, room: Room) {
+        return this.matchRepository.delete({ movieId, room })
     }
 
     async checkByMatch(room: Room) {
