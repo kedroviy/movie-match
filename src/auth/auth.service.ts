@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { OAuth2Client } from 'google-auth-library';
-import { compareSync, compare, genSaltSync, hashSync } from 'bcrypt';
+import { compareSync, genSaltSync, hashSync } from 'bcrypt';
 import { SendGridService } from '@anchan828/nest-sendgrid';
 import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
@@ -36,7 +36,7 @@ export class AuthService {
         private readonly jwtService: JwtService,
         private readonly attemptService: AttemptService,
         private readonly sendGrid: SendGridService,
-    ) { }
+    ) {}
 
     @Cron(CronExpression.EVERY_DAY_AT_1AM)
     async deleteExpiredRecords() {
@@ -44,7 +44,6 @@ export class AuthService {
         await this.verificationCodeRepository.delete({
             expiryDate: LessThan(expiryDate),
         });
-        console.log('Outdated entries removed');
     }
 
     async registration(dto: RegisterUserDto): Promise<SuccessMessage> {
@@ -67,8 +66,6 @@ export class AuthService {
         const user = await this.userService.getUserByEmail(dto.email);
 
         if (user) {
-            console.log('agent: ', agent);
-
             const attemptCheck = {
                 userId: String(user.id),
                 where: AttemptType.LOGIN,
@@ -224,7 +221,6 @@ export class AuthService {
 
     async changePassword(email: string, code: string, newPassword: string, res: any): Promise<any> {
         const user = await this.userService.getUserByEmail(email);
-        console.log(user);
         if (!user) {
             throw new NotFoundException('Error');
         }
