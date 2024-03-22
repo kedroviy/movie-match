@@ -1,5 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany } from "typeorm";
-import { Favorite } from "@src/favorite/favorite.model";
+import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany } from 'typeorm';
+import { Favorite } from '@src/favorite/favorite.model';
 
 export enum ClientType {
     GOOGLE = 'GOOGLE',
@@ -7,7 +7,7 @@ export enum ClientType {
 }
 
 @Entity()
-@Unique(["username", "email"])
+@Unique(['username', 'email'])
 export class User {
     @PrimaryGeneratedColumn()
     id: number;
@@ -22,12 +22,12 @@ export class User {
     password: string;
 
     @Column({
-        type: "enum",
+        type: 'enum',
         enum: ClientType,
         default: ClientType.NONE,
     })
     client: ClientType;
 
-    @OneToMany(() => Favorite, favorite => favorite.user)
+    @OneToMany(() => Favorite, (favorite) => favorite.user)
     favorites: Favorite[];
 }

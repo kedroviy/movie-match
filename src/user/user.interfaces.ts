@@ -1,4 +1,4 @@
-import { ClientType } from "./user.model";
+import { ClientType } from './user.model';
 
 export interface CheckUserExistenceParams {
     username?: string;

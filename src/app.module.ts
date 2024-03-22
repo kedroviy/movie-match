@@ -4,19 +4,22 @@ import { UserModule } from './user/user.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/user.model';
 import 'dotenv/config';
-import { JwtStrategy } from "@src/auth/strategies/jwt-strategy";
-import { APP_GUARD } from "@nestjs/core";
-import { JwtModule } from "./auth/auth.module"
-import { PassportModule } from "@nestjs/passport";
+import { JwtStrategy } from '@src/auth/strategies/jwt-strategy';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtModule } from './auth/auth.module';
+import { PassportModule } from '@nestjs/passport';
 import { MatchModule } from './match/match.module';
 import { RoomsModule } from './rooms/rooms.module';
-import { Room } from "@src/rooms/rooms.model";
+import { Room } from '@src/rooms/rooms.model';
 import { AttemptModule } from './attempt/attempt.module';
-import { Attempt } from "@src/attempt/attempt.model";
+import { Attempt } from '@src/attempt/attempt.model';
 import { MovieModule } from './movie/movie.module';
 import { FavoriteModule } from './favorite/favorite.module';
-import { Favorite } from "@src/favorite/favorite.model";
-import { Match } from "@src/match/match.model";
+import { Favorite } from '@src/favorite/favorite.model';
+import { Match } from '@src/match/match.model';
+import { EmailModule } from './email/email.module';
+import { SendGridModule } from '@anchan828/nest-sendgrid';
+import { VerifyCode } from './auth/auth.model';
 
 @Module({
     imports: [
@@ -26,10 +29,13 @@ import { Match } from "@src/match/match.model";
             port: Number(process.env.POSTGRES_PORT),
             password: process.env.POSTGRES_PASSWORD,
             username: process.env.POSTGRES_USERNAME,
-            entities: [User, Room, Attempt, Favorite, Match],
+            entities: [User, Room, Attempt, Favorite, Match, VerifyCode],
             database: process.env.POSTGRES_DATABASE,
             synchronize: true,
-            logging: false,
+            logging: ['query'],
+        }),
+        SendGridModule.forRoot({
+            apikey: process.env.SENDGRID_API_KEY,
         }),
         JwtModule,
         AuthModule,
@@ -39,7 +45,8 @@ import { Match } from "@src/match/match.model";
         RoomsModule,
         AttemptModule,
         MovieModule,
-        FavoriteModule
+        FavoriteModule,
+        EmailModule,
     ],
     controllers: [],
     providers: [

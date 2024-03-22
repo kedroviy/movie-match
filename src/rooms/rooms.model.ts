@@ -1,8 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany } from "typeorm";
-import { Match } from "@src/match/match.model";
+import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany } from 'typeorm';
+import { Match } from '@src/match/match.model';
 
 @Entity()
-@Unique(["key", "authorId"])
+@Unique(['key', 'authorId'])
 export class Room {
     @PrimaryGeneratedColumn()
     id: number;
@@ -19,7 +19,6 @@ export class Room {
     })
     createdAt: Date;
 
-    @OneToMany(() => Match, match => match.room, { onDelete: 'CASCADE' })
+    @OneToMany(() => Match, (match) => match.room, { onDelete: 'CASCADE' })
     matches: Match[];
 }
-

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.model';
@@ -9,33 +9,37 @@ import { GetMeType } from './user.response.types';
 @Injectable()
 export class UserService {
     constructor(@InjectRepository(User) private usersRepository: Repository<User>) {}
-    
-    async createUser(dto: CreateUser): Promise<User> {
-        const hashPassword = dto?.password ? this.hashPassword(dto.password) : '';
+
+    private hashPassword(password: string): string {
+        return hashSync(password, genSaltSync(10));
+    }
+
+    async createUser({ email, password, client }: CreateUser): Promise<User> {
+        const hashPassword = password ? this.hashPassword(password) : '';
         const now = new Date();
 
         const user = this.usersRepository.create({
             username: `user${now.getTime()}`,
-            email: dto.email,
+            email,
             password: hashPassword,
-            client: dto.client && dto.client
+            client,
         });
 
         return this.usersRepository.save(user);
     }
 
     async getMe(userEmail: string): Promise<GetMeType> {
-        const user: User = await this.getUserByEmail(userEmail)
+        const user: User = await this.getUserByEmail(userEmail);
 
         if (!user) {
-            throw new NotFoundException("User does not found.")
+            throw new NotFoundException('User with this email does not found.');
         }
 
-        const { id, email, username } = user
+        const { id, email, username } = user;
 
-        const userObj = { id, username, email }
+        const userObj = { id, username, email };
 
-        return userObj
+        return userObj;
     }
 
     async getUserByEmail(email: string): Promise<User> {
@@ -46,7 +50,8 @@ export class UserService {
         return this.usersRepository.findOne({ where: { id: Number(userId) } });
     }
 
-    private hashPassword(password: string): string {
-        return hashSync(password, genSaltSync(10))
+    async updateUserPassword(userId: number, newPassword: string): Promise<void> {
+        const hashedPassword = await this.hashPassword(newPassword);
+        await this.usersRepository.update(userId, { password: hashedPassword });
     }
 }

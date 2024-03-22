@@ -1,19 +1,19 @@
 import {
     ConnectedSocket,
-    MessageBody,
+    // MessageBody,
     OnGatewayConnection,
     OnGatewayDisconnect,
     OnGatewayInit,
     SubscribeMessage,
     WebSocketGateway,
-    WebSocketServer
-} from "@nestjs/websockets";
+    WebSocketServer,
+} from '@nestjs/websockets';
 import { MatchService } from './match.service';
-import { Socket, Server } from "socket.io";
-import { UserWS } from "y/common/decorators/getData/getUserDecoratorWS";
-import { GetUser } from "@src/user/user.interfaces";
-import { SocketBodyInterface } from "./match.interfaces";
-import { RoomsService } from "@src/rooms/rooms.service";
+import { Socket, Server } from 'socket.io';
+// import { UserWS } from 'y/common/decorators/getData/getUserDecoratorWS';
+// import { GetUser } from '@src/user/user.interfaces';
+// import { SocketBodyInterface } from './match.interfaces';
+import { RoomsService } from '@src/rooms/rooms.service';
 
 @WebSocketGateway()
 export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
@@ -21,18 +21,18 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
     constructor(
         private readonly matchService: MatchService,
-        private readonly roomsService: RoomsService
-    ) { }
+        private readonly roomsService: RoomsService,
+    ) {}
 
-    afterInit(server: Server) {
+    afterInit() {
         console.log('WebSocket gateway initialized');
     }
 
-    async handleConnection(client: Socket, ...args: any[]) {
+    async handleConnection(client: Socket) {
         const token = client.handshake.headers.authorization;
         const userVerify = await this.matchService.verifyToken(token);
         if (!token || !userVerify) {
-            client.disconnect(true); 
+            client.disconnect(true);
         }
         client.handshake.auth.user = userVerify;
         console.log(`Client connected: ${client.id}`);
@@ -53,12 +53,16 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     }
 
     @SubscribeMessage('feedback')
-    async feedbackMovie(@MessageBody() body: SocketBodyInterface, @UserWS() user: GetUser, @ConnectedSocket() client: Socket) {
-        const { movieId } = body;
+    async feedbackMovie(
+        // @MessageBody() body: SocketBodyInterface,
+        // @UserWS() user: GetUser,
+        @ConnectedSocket() client: Socket,
+    ) {
+        // const { movieId } = body;
         const roomKey = client.handshake.headers.room;
 
         // this.matchService.feedbackMovie(body, user.id, room)
 
-        this.server.to(`room${roomKey}`).emit(`room${roomKey}`, "Authorized user message");
+        this.server.to(`room${roomKey}`).emit(`room${roomKey}`, 'Authorized user message');
     }
 }
