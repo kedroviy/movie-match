@@ -1,6 +1,6 @@
 import {
     ConnectedSocket,
-    // MessageBody,
+    MessageBody,
     OnGatewayConnection,
     OnGatewayDisconnect,
     OnGatewayInit,
@@ -15,7 +15,7 @@ import { Socket, Server } from 'socket.io';
 // import { SocketBodyInterface } from './match.interfaces';
 import { RoomsService } from '@src/rooms/rooms.service';
 
-@WebSocketGateway()
+@WebSocketGateway({ transports: ['websocket'] })
 export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
 
@@ -42,6 +42,20 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         console.log(`Client disconnected: ${client.id}`);
     }
 
+    sendRoomUpdate(roomId: string, data: any) {
+        this.server.to(roomId).emit('roomUpdate', data);
+    }
+
+    joinRoom(client: Socket, roomId: string) {
+        client.join(roomId);
+        this.sendRoomUpdate(roomId, { roomId });
+    }
+
+    leaveRoom(client: Socket, roomId: string) {
+        client.leave(roomId);
+        this.sendRoomUpdate(roomId, { roomId });
+    }
+
     @SubscribeMessage('roomconnect')
     async connectToRoom(client: Socket) {
         const roomKey = client.handshake.headers.room;
@@ -49,6 +63,36 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
         if (room) {
             this.server.socketsJoin(`room${roomKey}`);
+        }
+    }
+
+    @SubscribeMessage('joinRoom')
+    async handleJoinRoom(@MessageBody() data: { key: string; userId: string }, @ConnectedSocket() client: Socket) {
+        try {
+            const roomKey = data.key;
+            const userId = data.userId;
+
+            const roomDetails = await this.roomsService.joinRoom(roomKey, userId);
+
+            client.join(`room${roomKey}`);
+
+            client.emit('joinedRoom', { message: 'Вы успешно присоединились к комнате', roomDetails });
+
+            this.sendRoomUpdate(`room${roomKey}`, roomDetails);
+        } catch (error) {
+            client.emit('error', { message: 'Ошибка при подключении к комнате' });
+        }
+
+        client.emit('roomInfo');
+    }
+
+    @SubscribeMessage('getRoomInfo')
+    async handleGetRoomInfo(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
+        try {
+            const room = await this.roomsService.getRoomDetails(data.roomId);
+            client.emit('roomInfo', room);
+        } catch (error) {
+            client.emit('error', { message: 'Ошибка при получении информации о комнате' });
         }
     }
 

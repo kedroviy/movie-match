@@ -1,4 +1,4 @@
-import { Controller, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { User } from 'y/common/decorators/getData/getUserDecorator';
 import { GetUser } from '@src/user/user.interfaces';
@@ -24,5 +24,15 @@ export class RoomsController {
     createRoom(@User() user: GetUser) {
         const { id } = user;
         return this.roomsService.createRoom(id);
+    }
+
+    @Post('join/:key')
+    async joinRoom(@Param('key') key: string, @Body('userId') userId: string) {
+        return this.roomsService.joinRoom(key, userId);
+    }
+
+    @Post('leave/:key')
+    async leaveRoom(@Param('key') key: string, @Body('userId') userId: string) {
+        return this.roomsService.leaveFromRoom(key, userId);
     }
 }

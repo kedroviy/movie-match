@@ -1,10 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany, JoinTable, ManyToMany } from 'typeorm';
 import { Match } from '@src/match/match.model';
+import { User } from '@src/user/user.model';
 
 @Entity()
 @Unique(['key', 'authorId'])
 export class Room {
-    @PrimaryGeneratedColumn()
+    @PrimaryGeneratedColumn('uuid')
     id: number;
 
     @Column()
@@ -18,6 +19,10 @@ export class Room {
         default: () => 'CURRENT_TIMESTAMP',
     })
     createdAt: Date;
+
+    @ManyToMany(() => User)
+    @JoinTable()
+    users: User[];
 
     @OneToMany(() => Match, (match) => match.room, { onDelete: 'CASCADE' })
     matches: Match[];

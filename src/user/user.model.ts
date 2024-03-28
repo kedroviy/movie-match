@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany } from 'typeorm';
 import { Favorite } from '@src/favorite/favorite.model';
+import { Match } from '@src/match/match.model';
 
 export enum ClientType {
     GOOGLE = 'GOOGLE',
@@ -30,4 +31,7 @@ export class User {
 
     @OneToMany(() => Favorite, (favorite) => favorite.user)
     favorites: Favorite[];
+
+    @OneToMany(() => Match, (match) => match.room, { onDelete: 'CASCADE' })
+    matches: Match[];
 }

@@ -1,17 +1,26 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
-import { Room } from "@src/rooms/rooms.model";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Room } from '@src/rooms/rooms.model';
 
 @Entity()
 export class Match {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column()
+    @Column({ nullable: true })
     movieId: string;
 
     @Column()
     userId: string;
 
-    @ManyToOne(() => Room, room => room.matches)
+    @Column()
+    userName: string;
+
+    @Column({ nullable: true })
+    vote: string;
+
+    @Column()
+    roomId: number;
+
+    @ManyToOne(() => Room, (room) => room.matches)
     room: Room;
 }
