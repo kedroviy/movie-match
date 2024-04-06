@@ -54,4 +54,11 @@ export class UserService {
         const hashedPassword = await this.hashPassword(newPassword);
         await this.usersRepository.update(userId, { password: hashedPassword });
     }
+
+    async updateUsername(userId: number, newUsername: string): Promise<any> {
+        const user = await this.usersRepository.findOne({ where: { id: userId } });
+        user.username = newUsername;
+        await this.usersRepository.save(user);
+        return user;
+    }
 }

@@ -12,6 +12,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { VerifyCode } from './auth.model';
 import 'dotenv/config';
+import { AuthGuard } from './guards/public-guard';
 
 @Module({
     imports: [
@@ -28,9 +29,9 @@ import 'dotenv/config';
             },
         }),
     ],
-    exports: [JwtModule],
+    exports: [JwtModule, AuthGuard, AuthService],
     controllers: [AuthController],
-    providers: [AuthService, UserService],
+    providers: [AuthService, UserService, AuthGuard],
 })
 export class AuthModule {}
 export { JwtModule };

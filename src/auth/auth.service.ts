@@ -46,6 +46,30 @@ export class AuthService {
         });
     }
 
+    private async verifyIdToken(idToken: string): Promise<string> {
+        try {
+            const ticket = await this.oAuth2Client.verifyIdToken({
+                idToken,
+                audience: this.googleClientId,
+            });
+
+            const payload = ticket.getPayload();
+
+            return payload.email;
+        } catch (error) {
+            throw new UnauthorizedException('Invalid ID Token');
+        }
+    }
+
+    private async generateToken(user: User): Promise<BearerToken> {
+        const accessToken = this.jwtService.sign({
+            id: user.id,
+            email: user.email,
+        });
+
+        return { token: accessToken };
+    }
+
     async registration(dto: RegisterUserDto): Promise<SuccessMessage> {
         const user = await this.userService.getUserByEmail(dto.email);
 
@@ -85,15 +109,6 @@ export class AuthService {
         }
     }
 
-    private async generateToken(user: User): Promise<BearerToken> {
-        const accessToken = this.jwtService.sign({
-            id: user.id,
-            email: user.email,
-        });
-
-        return { token: accessToken };
-    }
-
     async googleAuthorization(idToken: string): Promise<BearerToken> {
         const email = await this.verifyIdToken(idToken);
 
@@ -128,21 +143,6 @@ export class AuthService {
         }
 
         return this.generateToken(newUser);
-    }
-
-    private async verifyIdToken(idToken: string): Promise<string> {
-        try {
-            const ticket = await this.oAuth2Client.verifyIdToken({
-                idToken,
-                audience: this.googleClientId,
-            });
-
-            const payload = ticket.getPayload();
-
-            return payload.email;
-        } catch (error) {
-            throw new UnauthorizedException('Invalid ID Token');
-        }
     }
 
     async sendCode(email: string, res: any): Promise<any> {
@@ -248,5 +248,11 @@ export class AuthService {
         await this.userService.updateUserPassword(user.id, newPassword);
 
         return res.status(HttpStatus.OK).json({ message: 'Password successfully changed' });
+    }
+
+    validateToken(token: string) {
+        return this.jwtService.verify(token, {
+            secret: process.env.JWT_SECRET_KEY,
+        });
     }
 }
