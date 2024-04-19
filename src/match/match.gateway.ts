@@ -1,14 +1,14 @@
 import {
     ConnectedSocket,
     MessageBody,
-    OnGatewayConnection,
+    // OnGatewayConnection,
     OnGatewayDisconnect,
     OnGatewayInit,
     SubscribeMessage,
     WebSocketGateway,
     WebSocketServer,
 } from '@nestjs/websockets';
-import { MatchService } from './match.service';
+// import { MatchService } from './match.service';
 import { Socket, Server } from 'socket.io';
 // import { UserWS } from 'y/common/decorators/getData/getUserDecoratorWS';
 // import { GetUser } from '@src/user/user.interfaces';
@@ -16,11 +16,11 @@ import { Socket, Server } from 'socket.io';
 import { RoomsService } from '@src/rooms/rooms.service';
 
 @WebSocketGateway({ transports: ['websocket'] })
-export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class MatchGateway implements OnGatewayInit, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
 
     constructor(
-        private readonly matchService: MatchService,
+        // private readonly matchService: MatchService,
         private readonly roomsService: RoomsService,
     ) {}
 
@@ -28,15 +28,15 @@ export class MatchGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         console.log('WebSocket gateway initialized');
     }
 
-    async handleConnection(client: Socket) {
-        const token = client.handshake.headers.authorization;
-        const userVerify = await this.matchService.verifyToken(token);
-        if (!token || !userVerify) {
-            client.disconnect(true);
-        }
-        client.handshake.auth.user = userVerify;
-        console.log(`Client connected: ${client.id}`);
-    }
+    // async handleConnection(client: Socket) {
+    //     const token = client.handshake.headers.authorization;
+    //     const userVerify = await this.matchService.verifyToken(token);
+    //     if (!token || !userVerify) {
+    //         client.disconnect(true);
+    //     }
+    //     client.handshake.auth.user = userVerify;
+    //     console.log(`Client connected: ${client.id}`);
+    // }
 
     handleDisconnect(client: Socket) {
         console.log(`Client disconnected: ${client.id}`);

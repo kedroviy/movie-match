@@ -59,6 +59,6 @@ export class UserService {
         const user = await this.usersRepository.findOne({ where: { id: userId } });
         user.username = newUsername;
         await this.usersRepository.save(user);
-        return user;
+        return user.username;
     }
 }

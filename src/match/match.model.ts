@@ -13,13 +13,19 @@ export class Match {
     userId: string;
 
     @Column()
+    roomKey: string;
+
+    @Column()
     userName: string;
+
+    @Column()
+    role: string;
 
     @Column({ nullable: true })
     vote: string;
 
     @Column()
-    roomId: number;
+    roomId: string;
 
     @ManyToOne(() => Room, (room) => room.matches)
     room: Room;

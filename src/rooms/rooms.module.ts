@@ -5,11 +5,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Room } from '@src/rooms/rooms.model';
 import { Match } from '@src/match/match.model';
 import { UserModule } from '@src/user/user.module';
+import { RoomsGateway } from './rooms.gateway';
+import { MatchService } from '@src/match/match.service';
 
 @Module({
     imports: [TypeOrmModule.forFeature([Room, Match]), UserModule],
-    exports: [RoomsService],
+    providers: [RoomsService, RoomsGateway, MatchService],
     controllers: [RoomsController],
-    providers: [RoomsService],
+    exports: [RoomsService],
 })
 export class RoomsModule {}
