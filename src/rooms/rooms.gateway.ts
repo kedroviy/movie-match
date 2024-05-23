@@ -10,12 +10,13 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RoomsService } from './rooms.service';
-import { UserService } from '@src/user/user.service';
+// import { UserService } from '@src/user/user.service';
 import { Inject, forwardRef } from '@nestjs/common';
 import { Match } from '@src/match/match.model';
 
 @WebSocketGateway({
     namespace: 'rooms',
+    transports: ['websocket'],
     cors: {
         origin: '*',
     },
@@ -35,52 +36,60 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     constructor(
         @Inject(forwardRef(() => RoomsService))
         private roomsService: RoomsService,
-        private readonly userService: UserService,
-    ) { }
+        // private readonly userService: UserService,
+    ) {}
 
-    async handleJoinRoom(
-        @ConnectedSocket() client: Socket,
-        @MessageBody() { key, userId }: { key: string; userId: string },
-    ) {
-        try {
-            const roomDetails = await this.roomsService.joinRoom(key, userId);
-            const user = await this.userService.getUserById(roomDetails.userId);
-            const users = await this.roomsService.getUsersInRoom(key);
-            const matchDetails = await this.roomsService.getUsersInRoom(key);
+    @SubscribeMessage('logMessage')
+    handleLogMessage(@MessageBody() data: any) {
+        // Log the entire payload to debug the structure
+        console.log('Received data:', data);
 
-            this.server.to(key).emit('roomUpdate', {
-                roomDetails: roomDetails,
-                matchDetails: matchDetails,
-            });
+        // Safely extract the message with a default value
+        const message = data?.message ?? 'No message provided';
+        console.log(`Received message: ${message}`);
 
-            client.join(key);
-            this.server.to(key).emit('roomUpdate', {
-                message: `${user.username} has joined the room`,
-                roomDetails: roomDetails,
-                newUser: {
-                    id: user.id,
-                    username: user.username,
-                },
-                users,
-            });
-
-            client.emit('roomUpdate', {
-                message: `You have joined the room: ${roomDetails.name}`,
-                roomDetails: roomDetails,
-            });
-            console.log(`Data sent to room ${key}:`, matchDetails);
-        } catch (error) {
-            client.emit('error', this.formatError(error));
-        }
+        // Broadcast the message to all connected clients
+        this.server.emit('broadcastMessage', data);
     }
 
-    broadcastMatchUpdate(data): void {
-        this.server.emit('matchUpdate', data);
+    // async handleJoinRoom(
+    //     @ConnectedSocket() client: Socket,
+    //     @MessageBody() { key, userId }: { key: string; userId: string },
+    // ) {
+    //     try {
+    //         const roomDetails = await this.roomsService.joinRoom(key, userId);
+    //         const users = await this.roomsService.getMatchesInRoom(key);
+
+    //         client.join(key);
+
+    //         await this.server.to(key).emit('matchUpdated', {
+    //             message: `${userId} has joined the room`,
+    //             roomDetails: roomDetails,
+    //             users,
+    //         });
+    //         console.log('handleJoinRoom work');
+
+    //         await client.emit('roomUpdate', {
+    //             message: `You have joined the room: ${roomDetails.name}`,
+    //             roomDetails: roomDetails,
+    //         });
+    //     } catch (error) {
+    //         client.emit('error', this.formatError(error));
+    //     }
+    // }
+
+    @SubscribeMessage('requestMatchData')
+    async handleRequestMatchData(@MessageBody() data) {
+        const matches = await this.roomsService.getMatchesInRoom(data.roomKey);
+        console.log('requestMatchData: ', { matches });
+        this.server.emit('matchUpdated', matches);
     }
 
-    updateMatchDetails(data: { type: string; roomId: string; matchId: string; userName: string }) {
-        this.server.to(data.roomId).emit('matchUpdate', data);
-    }
+    // async broadcastMatchUpdate(data) {
+    //     console.log(`Sending matchUpdate to room ${data.roomKey}:`, data);
+    //     const matches = await this.roomsService.getMatchesInRoom(data.roomKey);
+    //     this.server.to(data.roomKey).emit('matchUpdate', matches);
+    // }
 
     async handleJoinMatch(@MessageBody() data: { userId: string; roomId: string }, @ConnectedSocket() client: Socket) {
         const match = await this.roomsService.joinRoom(data.userId, data.roomId);
@@ -90,7 +99,7 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
 
     notifyRoomJoined(room: Match) {
         console.log(`Notifying room join: ${room.userName}`);
-        this.server.to(room.roomId).emit('roomUpdate', {
+        this.server.to(room.roomId).emit('matchUpdated', {
             message: `${room.userName} has joined the room`,
             roomDetails: { id: room.roomId, name: room.userName },
             newUser: { ...room },
@@ -136,7 +145,7 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     ) {
         try {
             await this.roomsService.leaveFromRoom(roomKey, userId);
-            const users = await this.roomsService.getUsersInRoom(roomKey); // Fetch all users
+            const users = await this.roomsService.getMatchesInRoom(roomKey); // Fetch all users
 
             client.leave(roomKey);
             this.server.to(roomKey).emit('roomUpdate', {
@@ -146,5 +155,11 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         } catch (error) {
             client.emit('error', this.formatError(error));
         }
+    }
+
+    @SubscribeMessage('filtersUpdated')
+    async broadcastFilters(roomKey: string, filters: any) {
+        await this.server.to(roomKey).emit('filtersUpdated', { roomKey, filters });
+        console.log(`Broadcasting filters update to room ${roomKey}:`, filters);
     }
 }

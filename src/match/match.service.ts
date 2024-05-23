@@ -14,28 +14,7 @@ export class MatchService {
         // private readonly jwtService: JwtService,
         @InjectRepository(Match) private matchRepository: Repository<Match>,
         // @InjectRepository(Room) private roomRepository: Repository<Room>,
-    ) {}
-
-    // async joinMatch(userId: string, roomId: string): Promise<Match> {
-    //     const room = await this.roomRepository.findOne({ where: { id: roomId }, relations: ['matches'] });
-    //     if (!room) {
-    //         throw new NotFoundException('Room not found');
-    //     }
-
-    //     const existingMatch = room.matches.find((match) => match.userId === userId);
-    //     if (existingMatch) {
-    //         throw new BadRequestException('User already joined this room');
-    //     }
-
-    //     const match = this.matchRepository.create({
-    //         userId: userId,
-    //         roomId: roomId,
-    //         role: 'participant',
-    //     });
-
-    //     await this.matchRepository.save(match);
-    //     return match;
-    // }
+    ) { }
 
     async likeMovie(userId: string, roomId: string, movieId: string): Promise<Match> {
         const match = await this.matchRepository.findOne({ where: { userId, roomId } });
@@ -55,7 +34,6 @@ export class MatchService {
 
         return match;
     }
-
     // async verifyToken(token: string): Promise<GetUser | false> {
     //     try {
     //         const payload = await this.jwtService.verifyAsync(token, {

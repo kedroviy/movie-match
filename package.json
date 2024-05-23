@@ -29,12 +29,12 @@
     "@nestjs/mapped-types": "*",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.0.0",
-    "@nestjs/platform-socket.io": "^10.3.3",
+    "@nestjs/platform-socket.io": "^10.3.8",
     "@nestjs/platform-ws": "^10.3.3",
     "@nestjs/schedule": "^4.0.1",
     "@nestjs/swagger": "^7.2.0",
     "@nestjs/typeorm": "^10.0.1",
-    "@nestjs/websockets": "^10.3.3",
+    "@nestjs/websockets": "^10.3.8",
     "axios": "^1.6.7",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
@@ -47,6 +47,7 @@
     "pg": "^8.11.5",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
+    "socket.io": "^4.7.5",
     "typeorm": "^0.3.20"
   },
   "devDependencies": {

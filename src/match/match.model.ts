@@ -29,4 +29,5 @@ export class Match {
 
     @ManyToOne(() => Room, (room) => room.matches)
     room: Room;
+    users: any;
 }

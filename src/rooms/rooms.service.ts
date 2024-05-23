@@ -1,15 +1,15 @@
 import {
-    BadRequestException,
+    // BadRequestException,
     ConflictException,
     Inject,
     Injectable,
     NotFoundException,
+    // UnauthorizedException,
     forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room, RoomStatus } from '@src/rooms/rooms.model';
-import { RoomKeyType } from '@src/rooms/rooms.interfeces';
 import { Match } from '@src/match/match.model';
 import { UserService } from '@src/user/user.service';
 import { RoomsGateway } from './rooms.gateway';
@@ -22,9 +22,9 @@ export class RoomsService {
         private readonly userService: UserService,
         @Inject(forwardRef(() => RoomsGateway))
         private readonly roomsGateway: RoomsGateway,
-    ) { }
+    ) {}
 
-    async createRoom(userId: string, name?: string, filters?: any): Promise<RoomKeyType> {
+    async createRoom(userId: string, name?: string, filters?: any): Promise<Match> {
         const existingRoom = await this.getUsersRooms(userId);
         if (existingRoom) {
             throw new ConflictException('Room already exists for this user');
@@ -43,6 +43,7 @@ export class RoomsService {
         await this.roomRepository.save(newRoom);
 
         const user = await this.userService.getUserById(userId);
+
         if (!user) {
             throw new NotFoundException('User not found');
         }
@@ -58,44 +59,94 @@ export class RoomsService {
         await this.matchRepository.save(roomUser);
         this.roomsGateway.notifyRoomJoined(roomUser);
         return {
-            ...newRoom,
             ...roomUser,
         };
     }
 
     async joinRoom(key: string, userId: string): Promise<any> {
         const room = await this.roomRepository.findOne({ where: { key }, relations: ['users'] });
-        const existingUser = await this.matchRepository.findOne({
-            where: { userId, roomId: room.id },
-        });
-
-        const userName = await this.userService.getUserById(userId);
-
         if (!room) {
             throw new NotFoundException('Room not found');
         }
 
-        if (existingUser) {
-            throw new BadRequestException('User already joined this room');
+        const existingUser = await this.matchRepository.findOne({
+            where: { userId, roomId: room.id },
+        });
+
+        const user = await this.userService.getUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
         }
 
-        const roomUser = this.matchRepository.create({
-            userId: userId,
-            roomId: room.id,
-            userName: userName.username,
-            roomKey: room.key,
-            role: 'participant',
-        });
+        let roomUser;
+
+        if (existingUser) {
+            roomUser = existingUser;
+        } else {
+            roomUser = this.matchRepository.create({
+                userId: userId,
+                roomId: room.id,
+                userName: user.username,
+                roomKey: room.key,
+                role: 'participant',
+            });
+            await this.matchRepository.save(roomUser);
+            this.roomsGateway.notifyRoomJoined(roomUser);
+        }
 
         await this.matchRepository.save(roomUser);
 
-        this.roomsGateway.broadcastMatchUpdate({
+        const matchesInRoom = await this.getMatchesInRoom(key);
+        this.roomsGateway.handleRequestMatchData({
             type: 'matchUpdated',
-            ...roomUser,
+            roomKey: key,
+            matches: matchesInRoom,
         });
-        this.roomsGateway.notifyRoomJoined(roomUser);
 
-        return roomUser;
+        return matchesInRoom;
+    }
+
+    async updateRoomFilters(userId: string, roomId: string, filters: any): Promise<any> {
+        console.log('userId: ', userId, 'roomId: ', roomId, 'filters: ', filters);
+        const room = await this.roomRepository.findOneBy({ id: roomId });
+
+        console.log('room: ', userId);
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        const matches = await this.matchRepository.find({
+            where: { roomId: roomId },
+        });
+
+        if (matches.length === 0) {
+            throw new NotFoundException('No matches found in room');
+        }
+
+        const roomKey = matches[0]?.roomKey;
+        // if (room.authorId !== userId) {
+        //     throw new UnauthorizedException('You do not have permission to modify this room');
+        // }
+        room.filters = filters;
+        console.log(filters);
+        await this.roomRepository.save(room);
+
+        await this.roomsGateway.broadcastFilters(roomKey, filters);
+
+        return { message: 'Filters successfully updated.' };
+    }
+
+    async doesUserHaveRoom(
+        userId: string,
+    ): Promise<{ message: string; match?: Match[] } | { message: string; key?: string }> {
+        const room = await this.roomRepository.findOne({ where: { authorId: userId } });
+
+        if (room) {
+            const matches = await this.matchRepository.find({ where: { roomKey: room.key } });
+            return { message: 'room exist', match: matches, key: room.key };
+        } else {
+            return { message: 'room not found' };
+        }
     }
 
     async leaveFromRoom(key: string, userId: string): Promise<any> {
@@ -110,6 +161,19 @@ export class RoomsService {
         return { message: 'Left the room successfully' };
     }
 
+    async leaveFromMatch(userId: string, roomKey: string): Promise<any> {
+        const match = await this.matchRepository.findOne({
+            where: { userId: userId, roomKey: roomKey },
+        });
+
+        if (!match) {
+            throw new NotFoundException('Match not found');
+        }
+
+        await this.matchRepository.remove(match);
+        return { message: 'Successfully left the match' };
+    }
+
     async deleteRoom(key: string): Promise<void> {
         const room = await this.roomRepository.findOne({ where: { key } });
         if (!room) {
@@ -117,16 +181,6 @@ export class RoomsService {
         }
 
         await this.roomRepository.remove(room);
-    }
-
-    async updateRoomFilters(key: string, filters: any): Promise<void> {
-        const room = await this.roomRepository.findOne({ where: { key } });
-        if (!room) {
-            throw new NotFoundException('Room not found');
-        }
-
-        room.filters = filters;
-        await this.roomRepository.save(room);
     }
 
     async getRoomDetails(roomId: string): Promise<any> {
@@ -142,12 +196,12 @@ export class RoomsService {
         return room;
     }
 
-    async getUsersInRoom(roomKey: string): Promise<any[]> {
+    async getMatchesInRoom(roomKey: string): Promise<Match[]> {
         const matches = await this.matchRepository.find({
             where: { roomKey: roomKey },
-            relations: ['user'],
         });
-        return matches.map((match: any) => match.userName);
+
+        return matches;
     }
 
     async getRoomByKey(key: string): Promise<Room> {
@@ -164,26 +218,26 @@ export class RoomsService {
         });
     }
 
-    async addMatchToRoom(roomId: string, userId: string, userName: string) {
-        const room = await this.roomRepository.findOne({ where: { id: roomId } });
+    // async addMatchToRoom(roomId: string, userId: string, userName: string) {
+    //     const room = await this.roomRepository.findOne({ where: { id: roomId } });
 
-        if (!room) {
-            throw new NotFoundException('Room not found');
-        }
+    //     if (!room) {
+    //         throw new NotFoundException('Room not found');
+    //     }
 
-        const match = this.matchRepository.create({
-            userId,
-            roomId,
-            userName,
-        });
+    //     const match = this.matchRepository.create({
+    //         userId,
+    //         roomId,
+    //         userName,
+    //     });
 
-        await this.matchRepository.save(match);
+    //     await this.matchRepository.save(match);
 
-        this.roomsGateway.updateMatchDetails({
-            type: 'newMatch',
-            roomId: roomId,
-            matchId: match.id.toString(),
-            userName: userName,
-        });
-    }
+    //     this.roomsGateway.updateMatchDetails({
+    //         type: 'newMatch',
+    //         roomId: roomId,
+    //         matchId: match.id.toString(),
+    //         userName: userName,
+    //     });
+    // }
 }
