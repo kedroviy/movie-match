@@ -10,7 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { RoomsService } from './rooms.service';
-// import { UserService } from '@src/user/user.service';
+
 import { Inject, forwardRef } from '@nestjs/common';
 import { Match } from '@src/match/match.model';
 

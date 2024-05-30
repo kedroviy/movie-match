@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.model';
@@ -8,7 +8,7 @@ import { GetMeType } from './user.response.types';
 
 @Injectable()
 export class UserService {
-    constructor(@InjectRepository(User) private usersRepository: Repository<User>) {}
+    constructor(@InjectRepository(User) private usersRepository: Repository<User>) { }
 
     private hashPassword(password: string): string {
         return hashSync(password, genSaltSync(10));
@@ -56,9 +56,19 @@ export class UserService {
     }
 
     async updateUsername(userId: number, newUsername: string): Promise<any> {
-        const user = await this.usersRepository.findOne({ where: { id: userId } });
-        user.username = newUsername;
-        await this.usersRepository.save(user);
-        return user.username;
+        try {
+            const user = await this.usersRepository.findOne({ where: { id: userId } });
+            if (!user) {
+                throw new NotFoundException('User not found.');
+            }
+            user.username = newUsername;
+            await this.usersRepository.save(user);
+            return user.username;
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+            throw new ServiceUnavailableException('Service is currently unavailable. Please try again later.');
+        }
     }
 }
