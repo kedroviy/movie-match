@@ -8,7 +8,7 @@ import { GetMeType } from './user.response.types';
 
 @Injectable()
 export class UserService {
-    constructor(@InjectRepository(User) private usersRepository: Repository<User>) { }
+    constructor(@InjectRepository(User) private usersRepository: Repository<User>) {}
 
     private hashPassword(password: string): string {
         return hashSync(password, genSaltSync(10));

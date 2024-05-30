@@ -1,4 +1,12 @@
-import { Body, Controller, Get, InternalServerErrorException, NotFoundException, Put, UseGuards } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Get,
+    InternalServerErrorException,
+    NotFoundException,
+    Patch,
+    UseGuards,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { ApiBearerAuth, ApiCreatedResponse, ApiNotFoundResponse, ApiTags } from '@nestjs/swagger';
 import { GetMeType } from './user.response.types';
@@ -9,7 +17,7 @@ import { AuthGuard } from '@src/auth/guards/public-guard';
 @ApiTags('User')
 @Controller('user')
 export class UserController {
-    constructor(private readonly userService: UserService) { }
+    constructor(private readonly userService: UserService) {}
 
     @Get('me')
     @ApiCreatedResponse({ type: GetMeType })
@@ -20,7 +28,7 @@ export class UserController {
     }
 
     @UseGuards(AuthGuard)
-    @Put('/update-username')
+    @Patch('/update-username')
     async updateUsername(@Body() body) {
         try {
             const { userId, newUsername } = body;
