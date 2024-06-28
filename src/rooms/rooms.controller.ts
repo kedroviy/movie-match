@@ -23,6 +23,7 @@ import {
     ApiConflictResponse,
     ApiCreatedResponse,
     ApiNotFoundResponse,
+    ApiOkResponse,
     ApiOperation,
     ApiParam,
     ApiQuery,
@@ -32,6 +33,8 @@ import {
 import { RoomKeyResponse } from '@src/rooms/rooms.response.types';
 import { AuthGuard } from '@src/auth/guards/public-guard';
 import { Match } from '@src/match/match.model';
+import { MESSAGES } from '@src/constants';
+import { HasRoomResponse } from './dto/has-room-response.dto';
 
 @Controller('rooms')
 @ApiTags('Rooms')
@@ -41,8 +44,8 @@ export class RoomsController {
 
     @Post('create')
     @ApiCreatedResponse({ type: RoomKeyResponse })
-    @ApiConflictResponse({ description: 'Room already exists for this user' })
-    @ApiBadRequestResponse({ description: 'Failed to create room' })
+    @ApiConflictResponse({ description: MESSAGES.ROOM_ALREADY_EXIST })
+    @ApiBadRequestResponse({ description: MESSAGES.FAILED_TO_CREATE_ROOM })
     createRoom(@User() user: GetUser) {
         const { id } = user;
         return this.roomsService.createRoom(id);
@@ -58,6 +61,9 @@ export class RoomsController {
     }
 
     @Get('user/:userId/hasRoom')
+    @ApiParam({ name: 'userId', required: true, description: 'ID пользователя' })
+    @ApiOkResponse({ description: 'Статус комнаты для пользователя', type: HasRoomResponse })
+    @ApiNotFoundResponse({ description: 'Пользователь не найден' })
     async doesUserHaveRoom(
         @Param('userId') userId: string,
     ): Promise<{ message: string; match?: Match[] } | { message: string; key?: string }> {
@@ -131,7 +137,7 @@ export class RoomsController {
     @Get(':key/get-filters')
     @ApiOperation({ summary: 'Get room filters' })
     @ApiResponse({ status: 200, description: 'Successfully retrieved filters.' })
-    @ApiResponse({ status: 404, description: 'Room not found.' })
+    @ApiResponse({ status: 404, description: MESSAGES.ROOM_NOT_FOUND })
     async getRoomFilters(@Param('key') key: string) {
         try {
             const filters = await this.roomsService.getRoomFilters(key);
@@ -166,6 +172,7 @@ export class RoomsController {
     }
 
     @Get('/:roomKey/get-movies')
+    @ApiOperation({ summary: 'Get current movies data' })
     @ApiParam({
         name: 'roomKey',
         type: String,
@@ -178,10 +185,10 @@ export class RoomsController {
         description: 'User ID',
         required: true,
     })
-    @ApiResponse({ status: 200, description: 'Successful response' })
+    @ApiResponse({ status: 200, description: MESSAGES.SUCCESFUL_RESPONSE })
     @ApiResponse({ status: 404, description: 'Room or user not found' })
-    @ApiResponse({ status: 409, description: 'Conflict' })
-    @ApiResponse({ status: 500, description: 'Internal Server Error' })
+    @ApiResponse({ status: 409, description: MESSAGES.CONFLICT })
+    @ApiResponse({ status: 500, description: MESSAGES.INTERNAL_SERVER_ERROR })
     async getNextMovie(@Param('roomKey') roomKey: string, @Query('userId') userId: string) {
         try {
             return await this.roomsService.getNextMovie(roomKey, userId);
