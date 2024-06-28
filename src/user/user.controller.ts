@@ -8,7 +8,16 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiNotFoundResponse, ApiProperty, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+    ApiBearerAuth,
+    ApiBody,
+    ApiCreatedResponse,
+    ApiNotFoundResponse,
+    ApiProperty,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
+} from '@nestjs/swagger';
 import { GetMeType } from './user.response.types';
 import { User } from '@app/common/decorators/getData/getUserDecorator';
 import { GetUser } from '@src/user/user.interfaces';

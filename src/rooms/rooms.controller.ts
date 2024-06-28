@@ -35,6 +35,7 @@ import { AuthGuard } from '@src/auth/guards/public-guard';
 import { Match } from '@src/match/match.model';
 import { MESSAGES } from '@src/constants';
 import { HasRoomResponse } from './dto/has-room-response.dto';
+import { MoviesResponse } from './dto/movies-response.dto';
 
 @Controller('rooms')
 @ApiTags('Rooms')
@@ -185,11 +186,11 @@ export class RoomsController {
         description: 'User ID',
         required: true,
     })
-    @ApiResponse({ status: 200, description: MESSAGES.SUCCESFUL_RESPONSE })
+    @ApiResponse({ status: 200, description: 'Successful response', type: MoviesResponse })
     @ApiResponse({ status: 404, description: 'Room or user not found' })
-    @ApiResponse({ status: 409, description: MESSAGES.CONFLICT })
-    @ApiResponse({ status: 500, description: MESSAGES.INTERNAL_SERVER_ERROR })
-    async getNextMovie(@Param('roomKey') roomKey: string, @Query('userId') userId: string) {
+    @ApiResponse({ status: 409, description: 'Conflict' })
+    @ApiResponse({ status: 500, description: 'Internal Server Error' })
+    async getNextMovie(@Param('roomKey') roomKey: string, @Query('userId') userId: string): Promise<MoviesResponse> {
         try {
             return await this.roomsService.getNextMovie(roomKey, userId);
         } catch (error) {
@@ -213,7 +214,7 @@ export class RoomsController {
                 throw new HttpException(
                     {
                         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-                        message: 'Internal Server Error.',
+                        message: 'Internal Server Error',
                     },
                     HttpStatus.INTERNAL_SERVER_ERROR,
                 );

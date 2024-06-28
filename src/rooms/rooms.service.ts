@@ -9,6 +9,7 @@ import { constructUrl } from './rooms.utils';
 import { RoomState } from './rooms.interface';
 import { MatchMovie } from '@src/match-movies/match-movies.model';
 import axios from 'axios';
+import { MoviesResponse } from './dto/movies-response.dto';
 
 @Injectable()
 export class RoomsService {
@@ -200,7 +201,7 @@ export class RoomsService {
         }
     }
 
-    async getNextMovie(roomKey: string, userId: string): Promise<any> {
+    async getNextMovie(roomKey: string, userId: string): Promise<MoviesResponse> {
         const room = await this.roomRepository.findOne({ where: { key: roomKey } });
         if (!room) {
             throw new NotFoundException('Room not found');
@@ -211,18 +212,22 @@ export class RoomsService {
             throw new NotFoundException('User not found');
         }
 
-        const matchMovie = await this.matchMovieRepository.findOne({
+        const matchMovies = await this.matchMovieRepository.find({
             where: { roomKey, userId },
             order: { id: 'ASC' },
         });
 
-        if (!matchMovie) {
+        if (matchMovies.length === 0) {
             throw new NotFoundException('No movies found for this user in the specified room');
         }
 
-        await this.matchMovieRepository.delete(matchMovie.id);
-
-        return matchMovie.movieData;
+        return {
+            docs: matchMovies.map((matchMovie) => matchMovie.movieData),
+            total: matchMovies.length,
+            limit: 10,
+            page: 1,
+            pages: Math.ceil(matchMovies.length / 10),
+        };
     }
 
     private sendNextMovieToRoom(key: string): void {

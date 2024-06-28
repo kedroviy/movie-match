@@ -36,19 +36,15 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     constructor(
         @Inject(forwardRef(() => RoomsService))
         private roomsService: RoomsService,
-        // private readonly userService: UserService,
-    ) { }
+    ) {}
 
     @SubscribeMessage('logMessage')
     handleLogMessage(@MessageBody() data: any) {
-        // Log the entire payload to debug the structure
         console.log('Received data:', data);
 
-        // Safely extract the message with a default value
         const message = data?.message ?? 'No message provided';
         console.log(`Received message: ${message}`);
 
-        // Broadcast the message to all connected clients
         this.server.emit('broadcastMessage', data);
     }
 
@@ -102,10 +98,6 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         }
     }
 
-    // broadcastMatchData(data: Match) {
-    //     this.server.emit('broadcastMovies', data);
-    // }
-
     broadcastMoviesList(messageForClient: string) {
         const message = {
             type: 'broadcastMovies',
@@ -131,29 +123,16 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         });
     }
 
-    // @SubscribeMessage('likeMovie')
-    // async handleLikeMovie(
-    //     @MessageBody() data: { userId: string; roomId: number; movieId: string },
-    //     @ConnectedSocket() client: Socket,
-    // ) {
-    //     const match = await this.matchService.likeMovie(data.userId, data.roomId, data.movieId);
-    //     this.server.to(data.roomId.toString()).emit('movieLiked', match);
-    // }
-
     afterInit(server: Server) {
         console.log(server);
-        //Do stuffs
     }
 
     handleDisconnect(client: Socket) {
         console.log(`Disconnected: ${client.id}`);
-
-        //Do stuffs
     }
 
     handleConnection(client: Socket) {
         console.log(`Connected ${client.id}`);
-        //Do stuffs
     }
     private formatError(error: any): { message: string } {
         if (typeof error === 'object' && error !== null && 'message' in error) {
