@@ -41,7 +41,7 @@ import { MoviesResponse } from './dto/movies-response.dto';
 @ApiTags('Rooms')
 @ApiBearerAuth()
 export class RoomsController {
-    constructor(private readonly roomsService: RoomsService) {}
+    constructor(private readonly roomsService: RoomsService) { }
 
     @Post('create')
     @ApiCreatedResponse({ type: RoomKeyResponse })
@@ -49,6 +49,7 @@ export class RoomsController {
     @ApiBadRequestResponse({ description: MESSAGES.FAILED_TO_CREATE_ROOM })
     createRoom(@User() user: GetUser) {
         const { id } = user;
+        console.log(this.roomsService.createRoom(id));
         return this.roomsService.createRoom(id);
     }
 
@@ -57,8 +58,8 @@ export class RoomsController {
     @ApiCreatedResponse({ description: 'Successfully joined the room' })
     @ApiBadRequestResponse({ description: 'User already joined this room' })
     @ApiNotFoundResponse({ description: 'Room not found' })
-    async joinRoom(@Param('key') key: string, @Body('userId') userId: string) {
-        return this.roomsService.joinRoom(key, userId);
+    async joinRoom(@Param('key') key: string, @Body('userId') userId: number) {
+        return this.roomsService.joinRoom(userId, key);
     }
 
     @Get('user/:userId/hasRoom')
@@ -66,7 +67,7 @@ export class RoomsController {
     @ApiOkResponse({ description: 'Статус комнаты для пользователя', type: HasRoomResponse })
     @ApiNotFoundResponse({ description: 'Пользователь не найден' })
     async doesUserHaveRoom(
-        @Param('userId') userId: string,
+        @Param('userId') userId: number,
     ): Promise<{ message: string; match?: Match[] } | { message: string; key?: string }> {
         return this.roomsService.doesUserHaveRoom(userId);
     }
@@ -78,7 +79,7 @@ export class RoomsController {
 
     @Post('leave-from-match')
     @UseGuards(AuthGuard)
-    async leaveMatch(@Req() req, @Body() body: { userId: string; roomKey: string }) {
+    async leaveMatch(@Req() req, @Body() body: { userId: number; roomKey: string }) {
         try {
             const { userId, roomKey } = body;
             if (req.user.id !== userId) {
@@ -190,7 +191,7 @@ export class RoomsController {
     })
     @ApiQuery({
         name: 'userId',
-        type: String,
+        type: Number,
         description: 'User ID',
         required: true,
     })
@@ -198,9 +199,11 @@ export class RoomsController {
     @ApiResponse({ status: 404, description: 'Room or user not found' })
     @ApiResponse({ status: 409, description: 'Conflict' })
     @ApiResponse({ status: 500, description: 'Internal Server Error' })
-    async getNextMovie(@Param('roomKey') roomKey: string, @Query('userId') userId: string): Promise<MoviesResponse> {
+    async getNextMovie(@Param('roomKey') roomKey: string, @Query('userId') userId: number): Promise<MoviesResponse> {
+        console.log('Received request with roomKey:', roomKey, 'and userId:', userId);
         try {
-            return await this.roomsService.getNextMovie(roomKey, userId);
+            const movies = await this.roomsService.getNextMovie(roomKey, userId);
+            return movies;
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw new HttpException(

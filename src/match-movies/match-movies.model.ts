@@ -9,7 +9,7 @@ export class MatchMovie {
     roomKey: string;
 
     @Column()
-    userId: string;
+    userId: number;
 
     @Column()
     movieId: string;

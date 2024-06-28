@@ -14,8 +14,8 @@ export class Room {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column()
-    authorId: string;
+    @Column({ nullable: false })
+    authorId: number;
 
     @Column()
     key: string;

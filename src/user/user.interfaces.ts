@@ -12,6 +12,6 @@ export interface CreateUser {
 }
 
 export interface GetUser {
-    id: string;
+    id: number;
     email: string;
 }

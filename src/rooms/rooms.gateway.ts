@@ -68,7 +68,7 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     @SubscribeMessage('vote')
     async handleVote(
         @ConnectedSocket() client: Socket,
-        @MessageBody() payload: { key: string; userId: string; userName: string; movieId: string; vote: boolean },
+        @MessageBody() payload: { key: string; userId: number; userName: string; movieId: string; vote: boolean },
     ) {
         console.log('vote: ', client, payload);
 
@@ -98,20 +98,20 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         }
     }
 
-    broadcastMoviesList(messageForClient: string) {
+    async broadcastMoviesList(messageForClient: string) {
         const message = {
             type: 'broadcastMovies',
             messageForClient,
         };
         console.log('broadcast movie list', message);
 
-        this.server.emit('broadcastMovies', message);
+        await this.server.emit('broadcastMovies', message);
     }
 
-    async handleJoinMatch(@MessageBody() data: { userId: string; roomId: string }, @ConnectedSocket() client: Socket) {
+    async handleJoinMatch(@MessageBody() data: { userId: number; roomId: string }, @ConnectedSocket() client: Socket) {
         const match = await this.roomsService.joinRoom(data.userId, data.roomId);
-        client.join(data.roomId.toString());
-        this.server.to(data.roomId.toString()).emit('userJoined', match);
+        client.join(data.roomId);
+        this.server.to(data.roomId).emit('userJoined', match);
     }
 
     notifyRoomJoined(room: Match) {

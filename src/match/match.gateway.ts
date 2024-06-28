@@ -1,42 +1,26 @@
 import {
     ConnectedSocket,
     MessageBody,
-    // OnGatewayConnection,
     OnGatewayDisconnect,
     OnGatewayInit,
     SubscribeMessage,
     WebSocketGateway,
     WebSocketServer,
 } from '@nestjs/websockets';
-// import { MatchService } from './match.service';
+
 import { Socket, Server } from 'socket.io';
-// import { UserWS } from 'y/common/decorators/getData/getUserDecoratorWS';
-// import { GetUser } from '@src/user/user.interfaces';
-// import { SocketBodyInterface } from './match.interfaces';
+
 import { RoomsService } from '@src/rooms/rooms.service';
 
 @WebSocketGateway({ transports: ['websocket'] })
 export class MatchGateway implements OnGatewayInit, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
 
-    constructor(
-        // private readonly matchService: MatchService,
-        private readonly roomsService: RoomsService,
-    ) {}
+    constructor(private readonly roomsService: RoomsService) {}
 
     afterInit() {
         console.log('WebSocket gateway initialized');
     }
-
-    // async handleConnection(client: Socket) {
-    //     const token = client.handshake.headers.authorization;
-    //     const userVerify = await this.matchService.verifyToken(token);
-    //     if (!token || !userVerify) {
-    //         client.disconnect(true);
-    //     }
-    //     client.handshake.auth.user = userVerify;
-    //     console.log(`Client connected: ${client.id}`);
-    // }
 
     handleDisconnect(client: Socket) {
         console.log(`Client disconnected: ${client.id}`);
@@ -67,12 +51,12 @@ export class MatchGateway implements OnGatewayInit, OnGatewayDisconnect {
     }
 
     @SubscribeMessage('joinRoom')
-    async handleJoinRoom(@MessageBody() data: { key: string; userId: string }, @ConnectedSocket() client: Socket) {
+    async handleJoinRoom(@MessageBody() data: { key: string; userId: number }, @ConnectedSocket() client: Socket) {
         try {
             const roomKey = data.key;
             const userId = data.userId;
 
-            const roomDetails = await this.roomsService.joinRoom(roomKey, userId);
+            const roomDetails = await this.roomsService.joinRoom(userId, roomKey);
 
             client.join(`room${roomKey}`);
 

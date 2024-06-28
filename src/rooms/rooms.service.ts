@@ -1,4 +1,11 @@
-import { ConflictException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
+import {
+    ConflictException,
+    Inject,
+    Injectable,
+    InternalServerErrorException,
+    NotFoundException,
+    forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room, RoomStatus } from '@src/rooms/rooms.model';
@@ -7,7 +14,6 @@ import { UserService } from '@src/user/user.service';
 import { RoomsGateway } from './rooms.gateway';
 import { constructUrl } from './rooms.utils';
 import { RoomState } from './rooms.interface';
-import { MatchMovie } from '@src/match-movies/match-movies.model';
 import axios from 'axios';
 import { MoviesResponse } from './dto/movies-response.dto';
 
@@ -16,7 +22,6 @@ export class RoomsService {
     constructor(
         @InjectRepository(Room) private roomRepository: Repository<Room>,
         @InjectRepository(Match) private matchRepository: Repository<Match>,
-        @InjectRepository(MatchMovie) private matchMovieRepository: Repository<MatchMovie>,
         private readonly userService: UserService,
         @Inject(forwardRef(() => RoomsGateway))
         private readonly roomsGateway: RoomsGateway,
@@ -25,12 +30,12 @@ export class RoomsService {
     private roomStates = new Map<string, RoomState>();
     private readonly API_KEY: string = process.env.API_KEY_KINO;
 
-    async createRoom(userId: string, name?: string, filters?: any): Promise<Match> {
+    async createRoom(userId: number, name?: string, filters?: any): Promise<Match> {
         const existingRoom = await this.getUsersRooms(userId);
         if (existingRoom) {
             throw new ConflictException('Room already exists for this user');
         }
-
+        console.log(existingRoom, userId);
         const key = this.generateKey();
 
         const newRoom = this.roomRepository.create({
@@ -64,7 +69,7 @@ export class RoomsService {
         };
     }
 
-    async joinRoom(key: string, userId: string): Promise<any> {
+    async joinRoom(userId: number, key: string): Promise<any> {
         const room = await this.roomRepository.findOne({ where: { key }, relations: ['users'] });
         if (!room) {
             throw new NotFoundException('Room not found');
@@ -152,7 +157,6 @@ export class RoomsService {
 
     async startMatch(key: string): Promise<any> {
         const room = await this.roomRepository.findOneBy({ key });
-        console.log('key of room: ', room);
         if (!room) {
             throw new NotFoundException('Room not found');
         }
@@ -185,14 +189,13 @@ export class RoomsService {
         try {
             const response = await axios.get(url, config);
             const data = response.data;
-            console.log(data);
 
             (room.movies = JSON.stringify(data.docs)), await this.roomRepository.save(room);
 
             // const firstMovie = data.docs[0];
 
             // Broadcast the first movie to the room
-            this.roomsGateway.broadcastMoviesList('Get data!');
+            await this.roomsGateway.broadcastMoviesList('Get data!');
 
             return { status: 'success' };
         } catch (error) {
@@ -201,8 +204,9 @@ export class RoomsService {
         }
     }
 
-    async getNextMovie(roomKey: string, userId: string): Promise<MoviesResponse> {
-        const room = await this.roomRepository.findOne({ where: { key: roomKey } });
+    async getNextMovie(roomKey: string, userId: number): Promise<MoviesResponse> {
+        console.log('get movies work...');
+        const room = await this.roomRepository.findOne({ where: { key: roomKey }, relations: ['movies'] });
         if (!room) {
             throw new NotFoundException('Room not found');
         }
@@ -212,22 +216,31 @@ export class RoomsService {
             throw new NotFoundException('User not found');
         }
 
-        const matchMovies = await this.matchMovieRepository.find({
-            where: { roomKey, userId },
-            order: { id: 'ASC' },
-        });
-
-        if (matchMovies.length === 0) {
+        const matchMovies = room.movies;
+        if (!matchMovies || matchMovies.length === 0) {
             throw new NotFoundException('No movies found for this user in the specified room');
         }
 
-        return {
-            docs: matchMovies.map((matchMovie) => matchMovie.movieData),
-            total: matchMovies.length,
-            limit: 10,
-            page: 1,
-            pages: Math.ceil(matchMovies.length / 10),
-        };
+        try {
+            console.log({
+                docs: matchMovies,
+                total: matchMovies.length,
+                limit: 10,
+                page: 1,
+                pages: Math.ceil(matchMovies.length / 10),
+            });
+
+            return {
+                docs: matchMovies,
+                total: matchMovies.length,
+                limit: 10,
+                page: 1,
+                pages: Math.ceil(matchMovies.length / 10),
+            };
+        } catch (error) {
+            console.error('Error in getNextMovie:', error);
+            throw new InternalServerErrorException('Error fetching movies');
+        }
     }
 
     private sendNextMovieToRoom(key: string): void {
@@ -282,7 +295,7 @@ export class RoomsService {
         }
     }
 
-    async vote(key: string, userId: string, userName: string, movieId: string, vote: boolean): Promise<void> {
+    async vote(key: string, userId: number, userName: string, movieId: string, vote: boolean): Promise<void> {
         const matchRecord = await this.matchRepository.findOne({ where: { roomKey: key, userId } });
         console.log(matchRecord);
 
@@ -341,7 +354,7 @@ export class RoomsService {
     }
 
     async doesUserHaveRoom(
-        userId: string,
+        userId: number,
     ): Promise<{ message: string; match?: Match[] } | { message: string; key?: string }> {
         console.log('call user');
         const room = await this.roomRepository.findOne({ where: { authorId: userId } });
@@ -366,7 +379,7 @@ export class RoomsService {
         return { message: 'Left the room successfully' };
     }
 
-    async leaveFromMatch(userId: string, roomKey: string): Promise<any> {
+    async leaveFromMatch(userId: number, roomKey: string): Promise<any> {
         const match = await this.matchRepository.findOne({
             where: { userId: userId, roomKey: roomKey },
         });
@@ -417,7 +430,7 @@ export class RoomsService {
         return String(Math.floor(Math.random() * (999999 - 100000 + 1)) + 100000);
     }
 
-    private async getUsersRooms(userId: string): Promise<Room> {
+    private async getUsersRooms(userId: number): Promise<Room> {
         return this.roomRepository.findOne({
             where: { authorId: userId },
         });
