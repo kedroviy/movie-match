@@ -20,6 +20,7 @@ import { Match } from '@src/match/match.model';
 import { EmailModule } from './email/email.module';
 import { SendGridModule } from '@anchan828/nest-sendgrid';
 import { VerifyCode } from './auth/auth.model';
+import { MatchMoviesModule } from './match-movies/match-movies.module';
 
 @Module({
     imports: [
@@ -47,6 +48,7 @@ import { VerifyCode } from './auth/auth.model';
         MovieModule,
         FavoriteModule,
         EmailModule,
+        MatchMoviesModule,
     ],
     controllers: [],
     providers: [

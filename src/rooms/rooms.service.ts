@@ -1,28 +1,28 @@
-import {
-    // BadRequestException,
-    ConflictException,
-    Inject,
-    Injectable,
-    NotFoundException,
-    // UnauthorizedException,
-    forwardRef,
-} from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room, RoomStatus } from '@src/rooms/rooms.model';
 import { Match } from '@src/match/match.model';
 import { UserService } from '@src/user/user.service';
 import { RoomsGateway } from './rooms.gateway';
+import { constructUrl } from './rooms.utils';
+import { RoomState } from './rooms.interface';
+import { MatchMovie } from '@src/match-movies/match-movies.model';
+import axios from 'axios';
 
 @Injectable()
 export class RoomsService {
     constructor(
         @InjectRepository(Room) private roomRepository: Repository<Room>,
         @InjectRepository(Match) private matchRepository: Repository<Match>,
+        @InjectRepository(MatchMovie) private matchMovieRepository: Repository<MatchMovie>,
         private readonly userService: UserService,
         @Inject(forwardRef(() => RoomsGateway))
         private readonly roomsGateway: RoomsGateway,
-    ) {}
+    ) { }
+
+    private roomStates = new Map<string, RoomState>();
+    private readonly API_KEY: string = process.env.API_KEY_KINO;
 
     async createRoom(userId: string, name?: string, filters?: any): Promise<Match> {
         const existingRoom = await this.getUsersRooms(userId);
@@ -124,11 +124,8 @@ export class RoomsService {
         }
 
         const roomKey = matches[0]?.roomKey;
-        // if (room.authorId !== userId) {
-        //     throw new UnauthorizedException('You do not have permission to modify this room');
-        // }
-        room.filters = filters;
-        console.log(filters);
+        room.filters = JSON.stringify(filters);
+
         await this.roomRepository.save(room);
 
         await this.roomsGateway.broadcastFilters(roomKey, filters);
@@ -136,9 +133,212 @@ export class RoomsService {
         return { message: 'Filters successfully updated.' };
     }
 
+    async getRoomFilters(key: string): Promise<any> {
+        const room = await this.roomRepository.findOne({ where: { key } });
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        let filters;
+        try {
+            filters = JSON.parse(room.filters);
+        } catch (error) {
+            throw new ConflictException('Failed to parse filters');
+        }
+
+        return filters;
+    }
+
+    async startMatch(key: string): Promise<any> {
+        const room = await this.roomRepository.findOneBy({ key });
+        console.log('key of room: ', room);
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        let filters;
+        try {
+            filters = JSON.parse(room.filters);
+        } catch (error) {
+            throw new ConflictException('Failed to parse filters');
+        }
+
+        const safeFilters = {
+            excludeGenre: filters?.excludeGenre ?? [],
+            genres: filters?.genres ?? [],
+            selectedYears: filters?.selectedYears ?? [],
+            selectedGenres: filters?.selectedGenres ?? [],
+            selectedCountries: filters?.selectedCountries ?? [],
+        };
+
+        const baseURL = process.env.URL_KINOPOISK;
+        const url = constructUrl(baseURL, safeFilters, 1);
+
+        const config = {
+            headers: {
+                'X-API-KEY': this.API_KEY,
+            },
+        };
+
+        console.log('url: ', url);
+        try {
+            const response = await axios.get(url, config);
+            const data = response.data;
+            console.log(data);
+
+            (room.movies = JSON.stringify(data.docs)), await this.roomRepository.save(room);
+
+            // const firstMovie = data.docs[0];
+
+            // Broadcast the first movie to the room
+            this.roomsGateway.broadcastMoviesList('Get data!');
+
+            return { status: 'success' };
+        } catch (error) {
+            console.log(error);
+            throw new Error('Failed to fetch data from external API');
+        }
+    }
+
+    async getNextMovie(roomKey: string, userId: string): Promise<any> {
+        const room = await this.roomRepository.findOne({ where: { key: roomKey } });
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        const user = await this.userService.getUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        const matchMovie = await this.matchMovieRepository.findOne({
+            where: { roomKey, userId },
+            order: { id: 'ASC' },
+        });
+
+        if (!matchMovie) {
+            throw new NotFoundException('No movies found for this user in the specified room');
+        }
+
+        await this.matchMovieRepository.delete(matchMovie.id);
+
+        return matchMovie.movieData;
+    }
+
+    private sendNextMovieToRoom(key: string): void {
+        const roomState = this.roomStates.get(key);
+        if (!roomState) {
+            throw new NotFoundException('Room state not found');
+        }
+
+        const currentMovie = roomState.movies[roomState.currentMovieIndex];
+        if (!currentMovie) {
+            this.fetchNextPage(key);
+            return;
+        }
+
+        console.log('sendNextMovieToRoom: ', currentMovie);
+        this.roomsGateway.broadcastMoviesList(currentMovie);
+    }
+
+    private async fetchNextPage(key: string): Promise<void> {
+        const roomState = this.roomStates.get(key);
+        if (!roomState) {
+            throw new NotFoundException('Room state not found');
+        }
+
+        const filters = await this.getRoomFilters(key);
+        const baseURL = process.env.URL_KINOPOISK;
+        const nextPage = roomState.page + 1;
+        const url = constructUrl(baseURL, filters, nextPage);
+
+        const config = {
+            headers: {
+                'X-API-KEY': this.API_KEY,
+            },
+        };
+
+        console.log('url for match: ', url);
+
+        try {
+            const response = await axios.get(url, config);
+            console.log(response);
+            const data = response.data;
+
+            roomState.page = nextPage;
+            roomState.currentMovieIndex = 0;
+            roomState.movies = data.docs;
+            roomState.votes.clear();
+
+            this.sendNextMovieToRoom(key);
+        } catch (error) {
+            console.log(error);
+            throw new Error('Failed to fetch data from external API');
+        }
+    }
+
+    async vote(key: string, userId: string, userName: string, movieId: string, vote: boolean): Promise<void> {
+        const matchRecord = await this.matchRepository.findOne({ where: { roomKey: key, userId } });
+        console.log(matchRecord);
+
+        await this.matchRepository.manager.transaction(async (transactionalEntityManager) => {
+            let match = await transactionalEntityManager.findOne(Match, { where: { userId, movieId, roomKey: key } });
+            console.log('match: ', match);
+            if (match) {
+                match.vote = vote;
+            } else {
+                const room = await transactionalEntityManager.findOne(Room, { where: { key } });
+                if (!room) {
+                    throw new NotFoundException('Room not found');
+                }
+                match = transactionalEntityManager.create(Match, {
+                    userId,
+                    userName,
+                    movieId,
+                    roomId: room.id,
+                    vote,
+                    roomKey: key,
+                });
+            }
+
+            await transactionalEntityManager.save(Match, match);
+
+            const roomVotes = await transactionalEntityManager.find(Match, { where: { roomKey: key, movieId } });
+            const roomUsers = await transactionalEntityManager.find(Match, { where: { roomKey: key } });
+            const allVoted = roomUsers.length === roomVotes.length;
+
+            if (allVoted) {
+                const allVotes = roomVotes.map((v) => v.vote);
+
+                if (allVotes.every((v) => v)) {
+                    this.roomsGateway.broadcastMoviesList('Get Data!');
+                } else {
+                    this.sendNextMovieToRoom(key);
+                }
+            }
+        });
+    }
+
+    async handleVoteEnd(roomKey: string, movieId: string): Promise<void> {
+        const roomVotes = await this.matchRepository.find({ where: { roomKey, movieId } });
+        const roomUsers = await this.matchRepository.find({ where: { roomKey } });
+        const allVoted = roomUsers.length === roomVotes.length;
+
+        if (allVoted) {
+            const allVotes = roomVotes.map((v) => v.vote);
+
+            if (allVotes.every((v) => v)) {
+                this.roomsGateway.broadcastMoviesList('Get data!');
+            } else {
+                this.sendNextMovieToRoom(roomKey);
+            }
+        }
+    }
+
     async doesUserHaveRoom(
         userId: string,
     ): Promise<{ message: string; match?: Match[] } | { message: string; key?: string }> {
+        console.log('call user');
         const room = await this.roomRepository.findOne({ where: { authorId: userId } });
 
         if (room) {
@@ -217,27 +417,4 @@ export class RoomsService {
             where: { authorId: userId },
         });
     }
-
-    // async addMatchToRoom(roomId: string, userId: string, userName: string) {
-    //     const room = await this.roomRepository.findOne({ where: { id: roomId } });
-
-    //     if (!room) {
-    //         throw new NotFoundException('Room not found');
-    //     }
-
-    //     const match = this.matchRepository.create({
-    //         userId,
-    //         roomId,
-    //         userName,
-    //     });
-
-    //     await this.matchRepository.save(match);
-
-    //     this.roomsGateway.updateMatchDetails({
-    //         type: 'newMatch',
-    //         roomId: roomId,
-    //         matchId: match.id.toString(),
-    //         userName: userName,
-    //     });
-    // }
 }

@@ -22,7 +22,7 @@ export class Match {
     role: string;
 
     @Column({ nullable: true })
-    vote: string;
+    vote: boolean;
 
     @Column()
     roomId: string;

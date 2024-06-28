@@ -30,8 +30,8 @@ export class Room {
     })
     status: RoomStatus;
 
-    @Column({ type: 'json', nullable: true })
-    filters: any;
+    @Column({ type: 'text', nullable: true })
+    filters: string;
 
     @Column({
         type: 'timestamp',
@@ -45,4 +45,9 @@ export class Room {
 
     @OneToMany(() => Match, (match) => match.room, { onDelete: 'CASCADE' })
     matches: Match[];
+    matchMovies: any;
+
+    @Column({ type: 'json', nullable: true })
+    movies: any;
+    movieData: any;
 }

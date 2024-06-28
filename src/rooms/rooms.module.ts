@@ -8,9 +8,10 @@ import { UserModule } from '@src/user/user.module';
 import { RoomsGateway } from './rooms.gateway';
 import { MatchService } from '@src/match/match.service';
 import { AuthModule } from '@src/auth/auth.module';
+import { MatchMovie } from '@src/match-movies/match-movies.model';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Room, Match]), UserModule, forwardRef(() => AuthModule)],
+    imports: [TypeOrmModule.forFeature([Room, Match, MatchMovie]), UserModule, forwardRef(() => AuthModule)],
     providers: [RoomsService, RoomsGateway, MatchService],
     controllers: [RoomsController],
     exports: [RoomsService],

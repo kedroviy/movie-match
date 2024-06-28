@@ -34,4 +34,5 @@ export class User {
 
     @OneToMany(() => Match, (match) => match.room, { onDelete: 'CASCADE' })
     matches: Match[];
+    matchMovies: any;
 }

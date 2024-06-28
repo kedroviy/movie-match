@@ -23,11 +23,11 @@ export class MatchService {
         }
 
         match.movieId = movieId;
-        match.vote = 'like';
+        match.vote = true;
         await this.matchRepository.save(match);
 
         const allMatches = await this.matchRepository.find({ where: { roomId } });
-        const allLikedSameMovie = allMatches.every((m) => m.vote === 'like' && m.movieId === movieId);
+        const allLikedSameMovie = allMatches.every((m) => m.vote === true && m.movieId === movieId);
 
         if (allLikedSameMovie) {
         }

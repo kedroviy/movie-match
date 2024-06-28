@@ -37,7 +37,7 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         @Inject(forwardRef(() => RoomsService))
         private roomsService: RoomsService,
         // private readonly userService: UserService,
-    ) {}
+    ) { }
 
     @SubscribeMessage('logMessage')
     handleLogMessage(@MessageBody() data: any) {
@@ -52,32 +52,6 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         this.server.emit('broadcastMessage', data);
     }
 
-    // async handleJoinRoom(
-    //     @ConnectedSocket() client: Socket,
-    //     @MessageBody() { key, userId }: { key: string; userId: string },
-    // ) {
-    //     try {
-    //         const roomDetails = await this.roomsService.joinRoom(key, userId);
-    //         const users = await this.roomsService.getMatchesInRoom(key);
-
-    //         client.join(key);
-
-    //         await this.server.to(key).emit('matchUpdated', {
-    //             message: `${userId} has joined the room`,
-    //             roomDetails: roomDetails,
-    //             users,
-    //         });
-    //         console.log('handleJoinRoom work');
-
-    //         await client.emit('roomUpdate', {
-    //             message: `You have joined the room: ${roomDetails.name}`,
-    //             roomDetails: roomDetails,
-    //         });
-    //     } catch (error) {
-    //         client.emit('error', this.formatError(error));
-    //     }
-    // }
-
     @SubscribeMessage('requestMatchData')
     async handleRequestMatchData(@MessageBody() data) {
         const matches = await this.roomsService.getMatchesInRoom(data.roomKey);
@@ -85,11 +59,62 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         this.server.emit('matchUpdated', matches);
     }
 
-    // async broadcastMatchUpdate(data) {
-    //     console.log(`Sending matchUpdate to room ${data.roomKey}:`, data);
-    //     const matches = await this.roomsService.getMatchesInRoom(data.roomKey);
-    //     this.server.to(data.roomKey).emit('matchUpdate', matches);
+    @SubscribeMessage('startMatch')
+    async handleStartMatch(@MessageBody() data: { roomKey: string }) {
+        try {
+            const result = await this.roomsService.startMatch(data.roomKey);
+            this.server.emit('startMatchResponse', result);
+        } catch (error: any) {
+            this.server.emit('startMatchResponse', { status: 'error', message: error.message });
+        }
+    }
+
+    @SubscribeMessage('vote')
+    async handleVote(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() payload: { key: string; userId: string; userName: string; movieId: string; vote: boolean },
+    ) {
+        console.log('vote: ', client, payload);
+
+        if (!payload.key || !payload.userId || !payload.movieId || typeof payload.vote !== 'boolean') {
+            client.emit('voteError', { status: 'error', message: 'Invalid payload' });
+            return;
+        }
+
+        try {
+            await this.roomsService.vote(payload.key, payload.userId, payload.userName, payload.movieId, payload.vote);
+            client.emit('voteSuccess', { status: 'success', message: 'Vote registered successfully' });
+        } catch (error: any) {
+            console.error('Error handling vote:', error);
+            client.emit('voteError', { status: 'error', message: error.message });
+        }
+    }
+
+    @SubscribeMessage('voteEnded')
+    async handleVoteEnd(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() payload: { roomKey: string; movieId: string },
+    ) {
+        try {
+            await this.roomsService.handleVoteEnd(payload.roomKey, payload.movieId);
+        } catch (error: any) {
+            client.emit('voteEndError', { status: 'error', message: error.message });
+        }
+    }
+
+    // broadcastMatchData(data: Match) {
+    //     this.server.emit('broadcastMovies', data);
     // }
+
+    broadcastMoviesList(messageForClient: string) {
+        const message = {
+            type: 'broadcastMovies',
+            messageForClient,
+        };
+        console.log('broadcast movie list', message);
+
+        this.server.emit('broadcastMovies', message);
+    }
 
     async handleJoinMatch(@MessageBody() data: { userId: string; roomId: string }, @ConnectedSocket() client: Socket) {
         const match = await this.roomsService.joinRoom(data.userId, data.roomId);

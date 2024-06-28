@@ -12,6 +12,7 @@ import {
     Get,
     UnauthorizedException,
     UseGuards,
+    Query,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { User } from 'y/common/decorators/getData/getUserDecorator';
@@ -23,6 +24,8 @@ import {
     ApiCreatedResponse,
     ApiNotFoundResponse,
     ApiOperation,
+    ApiParam,
+    ApiQuery,
     ApiResponse,
     ApiTags,
 } from '@nestjs/swagger';
@@ -80,6 +83,12 @@ export class RoomsController {
         }
     }
 
+    @Post(':key/start-match')
+    async startMatchController(@Param('key') key: string) {
+        const result = await this.roomsService.startMatch(key);
+        return result;
+    }
+
     @Put(':id/filters')
     @ApiOperation({ summary: 'Update room filters' })
     @ApiResponse({ status: 200, description: 'Filters updated successfully.' })
@@ -106,6 +115,92 @@ export class RoomsController {
                         message: error.message,
                     },
                     HttpStatus.FORBIDDEN,
+                );
+            } else {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+                        message: 'Internal Server Error.',
+                    },
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                );
+            }
+        }
+    }
+
+    @Get(':key/get-filters')
+    @ApiOperation({ summary: 'Get room filters' })
+    @ApiResponse({ status: 200, description: 'Successfully retrieved filters.' })
+    @ApiResponse({ status: 404, description: 'Room not found.' })
+    async getRoomFilters(@Param('key') key: string) {
+        try {
+            const filters = await this.roomsService.getRoomFilters(key);
+            return { statusCode: HttpStatus.OK, filters };
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.NOT_FOUND,
+                        message: error.message,
+                    },
+                    HttpStatus.NOT_FOUND,
+                );
+            } else if (error instanceof ConflictException) {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.CONFLICT,
+                        message: error.message,
+                    },
+                    HttpStatus.CONFLICT,
+                );
+            } else {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+                        message: 'Internal Server Error.',
+                    },
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                );
+            }
+        }
+    }
+
+    @Get('/:roomKey/get-movies')
+    @ApiParam({
+        name: 'roomKey',
+        type: String,
+        description: 'Unique room key',
+        required: true,
+    })
+    @ApiQuery({
+        name: 'userId',
+        type: String,
+        description: 'User ID',
+        required: true,
+    })
+    @ApiResponse({ status: 200, description: 'Successful response' })
+    @ApiResponse({ status: 404, description: 'Room or user not found' })
+    @ApiResponse({ status: 409, description: 'Conflict' })
+    @ApiResponse({ status: 500, description: 'Internal Server Error' })
+    async getNextMovie(@Param('roomKey') roomKey: string, @Query('userId') userId: string) {
+        try {
+            return await this.roomsService.getNextMovie(roomKey, userId);
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.NOT_FOUND,
+                        message: error.message,
+                    },
+                    HttpStatus.NOT_FOUND,
+                );
+            } else if (error instanceof ConflictException) {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.CONFLICT,
+                        message: error.message,
+                    },
+                    HttpStatus.CONFLICT,
                 );
             } else {
                 throw new HttpException(
