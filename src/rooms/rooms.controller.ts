@@ -137,8 +137,16 @@ export class RoomsController {
 
     @Get(':key/get-filters')
     @ApiOperation({ summary: 'Get room filters' })
+    @ApiParam({
+        name: 'key',
+        type: String,
+        description: 'Unique room key',
+        required: true,
+    })
     @ApiResponse({ status: 200, description: 'Successfully retrieved filters.' })
-    @ApiResponse({ status: 404, description: MESSAGES.ROOM_NOT_FOUND })
+    @ApiResponse({ status: 404, description: 'Room not found' })
+    @ApiResponse({ status: 409, description: 'Failed to parse filters' })
+    @ApiResponse({ status: 500, description: 'Internal Server Error' })
     async getRoomFilters(@Param('key') key: string) {
         try {
             const filters = await this.roomsService.getRoomFilters(key);
