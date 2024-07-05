@@ -65,47 +65,14 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         }
     }
 
-    @SubscribeMessage('vote')
-    async handleVote(
-        @ConnectedSocket() client: Socket,
-        @MessageBody() payload: { key: string; userId: number; userName: string; movieId: string; vote: boolean },
-    ) {
-        console.log('vote: ', client, payload);
-
-        if (!payload.key || !payload.userId || !payload.movieId || typeof payload.vote !== 'boolean') {
-            client.emit('voteError', { status: 'error', message: 'Invalid payload' });
-            return;
-        }
-
-        try {
-            await this.roomsService.vote(payload.key, payload.userId, payload.userName, payload.movieId, payload.vote);
-            client.emit('voteSuccess', { status: 'success', message: 'Vote registered successfully' });
-        } catch (error: any) {
-            console.error('Error handling vote:', error);
-            client.emit('voteError', { status: 'error', message: error.message });
-        }
-    }
-
-    @SubscribeMessage('voteEnded')
-    async handleVoteEnd(
-        @ConnectedSocket() client: Socket,
-        @MessageBody() payload: { roomKey: string; movieId: string },
-    ) {
-        try {
-            await this.roomsService.handleVoteEnd(payload.roomKey, payload.movieId);
-        } catch (error: any) {
-            client.emit('voteEndError', { status: 'error', message: error.message });
-        }
-    }
-
-    async broadcastMoviesList(messageForClient: string) {
+    broadcastMoviesList(messageForClient: string) {
         const message = {
             type: 'broadcastMovies',
             messageForClient,
         };
         console.log('broadcast movie list', message);
 
-        await this.server.emit('broadcastMovies', message);
+        this.server.emit('broadcastMovies', message);
     }
 
     async handleJoinMatch(@MessageBody() data: { userId: number; roomId: string }, @ConnectedSocket() client: Socket) {

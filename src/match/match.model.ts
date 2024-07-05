@@ -1,13 +1,19 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Room } from '@src/rooms/rooms.model';
 
+export enum MatchUserStatus {
+    ACTIVE = 'ACTIVE',
+    WAITING = 'WAITING',
+    CLOSED = 'CLOSED',
+}
+
 @Entity()
 export class Match {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({ nullable: true })
-    movieId: string;
+    @Column('simple-array', { nullable: true })
+    movieId: string[];
 
     @Column()
     userId: number;
@@ -26,6 +32,9 @@ export class Match {
 
     @Column()
     roomId: string;
+
+    @Column()
+    userStatus: string;
 
     @ManyToOne(() => Room, (room) => room.matches)
     room: Room;

@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
 export enum AttemptType {
-    LOGIN = "LOGIN",
+    LOGIN = 'LOGIN',
 }
 
 @Entity()
@@ -27,4 +27,3 @@ export class Attempt {
     @Column({ nullable: true })
     userAgent: string;
 }
-

@@ -9,13 +9,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room, RoomStatus } from '@src/rooms/rooms.model';
-import { Match } from '@src/match/match.model';
+import { Match, MatchUserStatus } from '@src/match/match.model';
 import { UserService } from '@src/user/user.service';
 import { RoomsGateway } from './rooms.gateway';
 import { constructUrl } from './rooms.utils';
 import { RoomState } from './rooms.interface';
 import axios from 'axios';
-import { MoviesResponse } from './dto/movies-response.dto';
 
 @Injectable()
 export class RoomsService {
@@ -25,7 +24,7 @@ export class RoomsService {
         private readonly userService: UserService,
         @Inject(forwardRef(() => RoomsGateway))
         private readonly roomsGateway: RoomsGateway,
-    ) { }
+    ) {}
 
     private roomStates = new Map<string, RoomState>();
     private readonly API_KEY: string = process.env.API_KEY_KINO;
@@ -60,6 +59,7 @@ export class RoomsService {
             userName: user.username,
             roomKey: newRoom.key,
             role: 'admin',
+            userStatus: MatchUserStatus.ACTIVE,
         });
 
         await this.matchRepository.save(roomUser);
@@ -95,6 +95,7 @@ export class RoomsService {
                 userName: user.username,
                 roomKey: room.key,
                 role: 'participant',
+                userStatus: MatchUserStatus.ACTIVE,
             });
             await this.matchRepository.save(roomUser);
             this.roomsGateway.notifyRoomJoined(roomUser);
@@ -167,7 +168,7 @@ export class RoomsService {
         } catch (error) {
             throw new ConflictException('Failed to parse filters');
         }
-
+        console.log(filters);
         const safeFilters = {
             excludeGenre: filters?.excludeGenre ?? [],
             genres: filters?.genres ?? [],
@@ -190,30 +191,56 @@ export class RoomsService {
             const response = await axios.get(url, config);
             const data = response.data;
 
-            (room.movies = JSON.stringify(data.docs)), await this.roomRepository.save(room);
+            room.movies = JSON.stringify(data);
+            await this.roomRepository.save(room);
 
-            // const firstMovie = data.docs[0];
-
-            // Broadcast the first movie to the room
             await this.roomsGateway.broadcastMoviesList('Get data!');
+        } catch (error) {
+            console.log(error);
+            throw new Error('Failed to fetch data from external API');
+        }
 
-            return { status: 'success' };
+        return { status: 'success' };
+    }
+
+    async fetchAndSaveMovies(room: Room, filters: any): Promise<any> {
+        console.log('fetch and save');
+        const safeFilters = {
+            excludeGenre: filters?.excludeGenre ?? [],
+            genres: filters?.genres ?? [],
+            selectedYears: filters?.selectedYears ?? [],
+            selectedGenres: filters?.selectedGenres ?? [],
+            selectedCountries: filters?.selectedCountries ?? [],
+        };
+
+        const baseURL = process.env.URL_KINOPOISK;
+        const url = constructUrl(baseURL, safeFilters, 1);
+
+        const config = {
+            headers: {
+                'X-API-KEY': this.API_KEY,
+            },
+        };
+
+        console.log('url: ', url);
+        try {
+            const response = await axios.get(url, config);
+            const data = response.data;
+
+            room.movies = JSON.stringify(data);
+            await this.roomRepository.save(room);
+
+            await this.roomsGateway.broadcastMoviesList('Get data!');
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');
         }
     }
 
-    async getNextMovie(roomKey: string, userId: number): Promise<MoviesResponse> {
-        console.log('get movies work...');
-        const room = await this.roomRepository.findOne({ where: { key: roomKey }, relations: ['movies'] });
+    async getNextMovie(roomKey: string): Promise<string> {
+        const room = await this.roomRepository.findOne({ where: { key: roomKey } });
         if (!room) {
             throw new NotFoundException('Room not found');
-        }
-
-        const user = await this.userService.getUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
         }
 
         const matchMovies = room.movies;
@@ -222,21 +249,9 @@ export class RoomsService {
         }
 
         try {
-            console.log({
-                docs: matchMovies,
-                total: matchMovies.length,
-                limit: 10,
-                page: 1,
-                pages: Math.ceil(matchMovies.length / 10),
-            });
+            console.log('movies: ', matchMovies);
 
-            return {
-                docs: matchMovies,
-                total: matchMovies.length,
-                limit: 10,
-                page: 1,
-                pages: Math.ceil(matchMovies.length / 10),
-            };
+            return await matchMovies;
         } catch (error) {
             console.error('Error in getNextMovie:', error);
             throw new InternalServerErrorException('Error fetching movies');
@@ -292,64 +307,6 @@ export class RoomsService {
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');
-        }
-    }
-
-    async vote(key: string, userId: number, userName: string, movieId: string, vote: boolean): Promise<void> {
-        const matchRecord = await this.matchRepository.findOne({ where: { roomKey: key, userId } });
-        console.log(matchRecord);
-
-        await this.matchRepository.manager.transaction(async (transactionalEntityManager) => {
-            let match = await transactionalEntityManager.findOne(Match, { where: { userId, movieId, roomKey: key } });
-            console.log('match: ', match);
-            if (match) {
-                match.vote = vote;
-            } else {
-                const room = await transactionalEntityManager.findOne(Room, { where: { key } });
-                if (!room) {
-                    throw new NotFoundException('Room not found');
-                }
-                match = transactionalEntityManager.create(Match, {
-                    userId,
-                    userName,
-                    movieId,
-                    roomId: room.id,
-                    vote,
-                    roomKey: key,
-                });
-            }
-
-            await transactionalEntityManager.save(Match, match);
-
-            const roomVotes = await transactionalEntityManager.find(Match, { where: { roomKey: key, movieId } });
-            const roomUsers = await transactionalEntityManager.find(Match, { where: { roomKey: key } });
-            const allVoted = roomUsers.length === roomVotes.length;
-
-            if (allVoted) {
-                const allVotes = roomVotes.map((v) => v.vote);
-
-                if (allVotes.every((v) => v)) {
-                    this.roomsGateway.broadcastMoviesList('Get Data!');
-                } else {
-                    this.sendNextMovieToRoom(key);
-                }
-            }
-        });
-    }
-
-    async handleVoteEnd(roomKey: string, movieId: string): Promise<void> {
-        const roomVotes = await this.matchRepository.find({ where: { roomKey, movieId } });
-        const roomUsers = await this.matchRepository.find({ where: { roomKey } });
-        const allVoted = roomUsers.length === roomVotes.length;
-
-        if (allVoted) {
-            const allVotes = roomVotes.map((v) => v.vote);
-
-            if (allVotes.every((v) => v)) {
-                this.roomsGateway.broadcastMoviesList('Get data!');
-            } else {
-                this.sendNextMovieToRoom(roomKey);
-            }
         }
     }
 

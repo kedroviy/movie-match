@@ -12,7 +12,6 @@ import {
     Get,
     UnauthorizedException,
     UseGuards,
-    Query,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { User } from 'y/common/decorators/getData/getUserDecorator';
@@ -26,7 +25,6 @@ import {
     ApiOkResponse,
     ApiOperation,
     ApiParam,
-    ApiQuery,
     ApiResponse,
     ApiTags,
 } from '@nestjs/swagger';
@@ -41,7 +39,7 @@ import { MoviesResponse } from './dto/movies-response.dto';
 @ApiTags('Rooms')
 @ApiBearerAuth()
 export class RoomsController {
-    constructor(private readonly roomsService: RoomsService) { }
+    constructor(private readonly roomsService: RoomsService) {}
 
     @Post('create')
     @ApiCreatedResponse({ type: RoomKeyResponse })
@@ -182,6 +180,7 @@ export class RoomsController {
     }
 
     @Get('/:roomKey/get-movies')
+    @UseGuards(AuthGuard)
     @ApiOperation({ summary: 'Get current movies data' })
     @ApiParam({
         name: 'roomKey',
@@ -189,21 +188,13 @@ export class RoomsController {
         description: 'Unique room key',
         required: true,
     })
-    @ApiQuery({
-        name: 'userId',
-        type: Number,
-        description: 'User ID',
-        required: true,
-    })
     @ApiResponse({ status: 200, description: 'Successful response', type: MoviesResponse })
     @ApiResponse({ status: 404, description: 'Room or user not found' })
     @ApiResponse({ status: 409, description: 'Conflict' })
     @ApiResponse({ status: 500, description: 'Internal Server Error' })
-    async getNextMovie(@Param('roomKey') roomKey: string, @Query('userId') userId: number): Promise<MoviesResponse> {
-        console.log('Received request with roomKey:', roomKey, 'and userId:', userId);
+    async getNextMovie(@Param('roomKey') roomKey: string): Promise<string> {
         try {
-            const movies = await this.roomsService.getNextMovie(roomKey, userId);
-            return movies;
+            return this.roomsService.getNextMovie(roomKey);
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw new HttpException(
