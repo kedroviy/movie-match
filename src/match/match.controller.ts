@@ -1,8 +1,9 @@
 import { Body, Controller, HttpCode, HttpException, HttpStatus, Patch, Post } from '@nestjs/common';
 import { LikeMovieDto } from './dto/like-movie.dto';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MatchService } from './match.service';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { updateUserStatusExamples } from './match-swagger-examples';
 
 @ApiTags('match')
 @Controller('match')
@@ -26,9 +27,34 @@ export class MatchController {
     @Patch('status')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Update user status in a match' })
-    @ApiResponse({ status: 200, description: 'User status updated successfully' })
-    @ApiResponse({ status: 404, description: 'Match not found' })
-    @ApiResponse({ status: 400, description: 'Bad Request' })
+    @ApiBody({
+        description: 'Details to update user status',
+        type: UpdateUserStatusDto,
+        examples: {
+            example1: updateUserStatusExamples.request,
+        },
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'User status updated successfully',
+        schema: {
+            example: updateUserStatusExamples.response.success,
+        },
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Match not found',
+        schema: {
+            example: updateUserStatusExamples.response.notFound,
+        },
+    })
+    @ApiResponse({
+        status: 400,
+        description: 'Bad Request',
+        schema: {
+            example: updateUserStatusExamples.response.badRequest,
+        },
+    })
     async updateUserStatus(@Body() updateUserStatusDto: UpdateUserStatusDto): Promise<string> {
         return this.matchService.updateUserStatus(
             updateUserStatusDto.roomKey,
