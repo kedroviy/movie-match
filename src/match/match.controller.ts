@@ -1,14 +1,14 @@
-import { Body, Controller, HttpCode, HttpException, HttpStatus, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpException, HttpStatus, NotFoundException, Param, Patch, Post } from '@nestjs/common';
 import { LikeMovieDto } from './dto/like-movie.dto';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MatchService } from './match.service';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { updateUserStatusExamples } from './match-swagger-examples';
 
-@ApiTags('match')
+@ApiTags('Match')
 @Controller('match')
 export class MatchController {
-    constructor(private readonly matchService: MatchService) {}
+    constructor(private readonly matchService: MatchService) { }
 
     @Post('like')
     @ApiOperation({ summary: 'Like a movie' })
@@ -24,7 +24,55 @@ export class MatchController {
         }
     }
 
-    @Patch('status')
+    @Get(':roomKey/user-status/:userId')
+    @ApiOperation({ summary: 'Get User Status By User ID' })
+    @ApiParam({
+        name: 'roomKey',
+        required: true,
+        description: 'The key of the room to which the user belongs',
+        type: String,
+        example: '1234',
+    })
+    @ApiParam({
+        name: 'userId',
+        required: true,
+        description: 'The ID of the user whose status is being queried',
+        type: Number,
+        example: 5678,
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'User status retrieved successfully',
+        schema: {
+            example: {
+                userId: 5678,
+                userStatus: 'WAITING',
+            },
+        },
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'User status not found',
+        schema: {
+            example: {
+                statusCode: 404,
+                message: 'User status not found',
+                error: 'Not Found',
+            },
+        },
+    })
+    async getUserStatus(
+        @Param('roomKey') roomKey: string,
+        @Param('userId') userId: number,
+    ): Promise<{ userId: number; userStatus: string }> {
+        const userStatus = await this.matchService.getUserStatusByUserId(roomKey, userId);
+        if (!userStatus) {
+            throw new NotFoundException('User status not found');
+        }
+        return { userId, userStatus };
+    }
+
+    @Patch('user-status')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Update user status in a match' })
     @ApiBody({

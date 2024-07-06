@@ -14,6 +14,6 @@ import { MatchMovie } from '@src/match-movies/match-movies.model';
     imports: [TypeOrmModule.forFeature([Room, Match, MatchMovie]), UserModule, forwardRef(() => AuthModule)],
     providers: [RoomsService, RoomsGateway, MatchService],
     controllers: [RoomsController],
-    exports: [RoomsService],
+    exports: [RoomsService, RoomsGateway],
 })
 export class RoomsModule {}
