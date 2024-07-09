@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, HttpException, HttpStatus, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Get,
+    HttpCode,
+    HttpException,
+    HttpStatus,
+    NotFoundException,
+    Param,
+    Patch,
+    Post,
+} from '@nestjs/common';
 import { LikeMovieDto } from './dto/like-movie.dto';
 import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MatchService } from './match.service';
@@ -8,7 +19,7 @@ import { updateUserStatusExamples } from './match-swagger-examples';
 @ApiTags('Match')
 @Controller('match')
 export class MatchController {
-    constructor(private readonly matchService: MatchService) { }
+    constructor(private readonly matchService: MatchService) {}
 
     @Post('like')
     @ApiOperation({ summary: 'Like a movie' })
@@ -109,5 +120,47 @@ export class MatchController {
             updateUserStatusDto.userId,
             updateUserStatusDto.userStatus,
         );
+    }
+
+    @Post('check-status/:roomKey')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Check and broadcast status if needed' })
+    @ApiParam({
+        name: 'roomKey',
+        required: true,
+        description: 'The key of the room to check the status for',
+        type: String,
+        example: '1234',
+    })
+    @ApiBody({
+        description: 'User ID for whom the status is being checked',
+        schema: {
+            type: 'object',
+            properties: {
+                userId: {
+                    type: 'number',
+                    description: 'The ID of the user',
+                    example: 5678,
+                },
+            },
+        },
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Status checked and broadcasted successfully if needed',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Match not found',
+        schema: {
+            example: {
+                statusCode: 404,
+                message: 'Match not found',
+                error: 'Not Found',
+            },
+        },
+    })
+    async checkStatus(@Param('roomKey') roomKey: string, @Body('userId') userId: number): Promise<void> {
+        await this.matchService.checkAndBroadcastIfNeeded(roomKey, userId);
     }
 }

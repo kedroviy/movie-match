@@ -214,7 +214,8 @@ export class RoomsService {
         };
 
         const baseURL = process.env.URL_KINOPOISK;
-        const url = constructUrl(baseURL, safeFilters, 1);
+        const currentPage = room.currentPage;
+        const url = constructUrl(baseURL, safeFilters, currentPage);
 
         const config = {
             headers: {
@@ -228,6 +229,8 @@ export class RoomsService {
             const data = response.data;
 
             room.movies = JSON.stringify(data);
+            room.currentPage = currentPage + 1;
+
             await this.roomRepository.save(room);
 
             await this.roomsGateway.broadcastMoviesList('Get data!');

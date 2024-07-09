@@ -30,6 +30,9 @@ export class Room {
     })
     status: RoomStatus;
 
+    @Column({ default: 1 })
+    currentPage: number;
+
     @Column({ type: 'text', nullable: true })
     filters: string;
 

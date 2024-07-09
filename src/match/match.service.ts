@@ -39,34 +39,7 @@ export class MatchService {
 
         await this.matchRepository.save(match);
 
-        await this.checkAndLoadNewMoviesIfNeeded(roomKey);
-
         return 'Movie liked successfully';
-    }
-
-    async checkAndLoadNewMoviesIfNeeded(roomKey: string): Promise<void> {
-        const matches = await this.matchRepository.find({ where: { roomKey } });
-
-        const room = await this.roomRepository.findOneBy({ key: roomKey });
-        if (!room) {
-            throw new NotFoundException('Room not found');
-        }
-
-        let filters;
-        try {
-            filters = JSON.parse(room.filters);
-        } catch (error) {
-            throw new ConflictException('Failed to parse filters');
-        }
-
-        for (const match of matches) {
-            const totalLikes = match.movieId.length;
-
-            if (totalLikes >= 4) {
-                await this.roomsService.fetchAndSaveMovies(room, filters);
-                return;
-            }
-        }
     }
 
     async getUserStatusByUserId(roomKey: string, userId: number): Promise<string | null> {
@@ -85,48 +58,7 @@ export class MatchService {
 
         await this.matchRepository.save(match);
 
-        if (await this.areAllUsersWaiting(roomKey)) {
-            const commonMovies = await this.getCommonMovies(roomKey);
-
-            if (commonMovies.length < 10) {
-                const room = await this.roomRepository.findOneBy({ key: roomKey });
-                if (!room) {
-                    throw new NotFoundException('Room not found');
-                }
-
-                let filters;
-                try {
-                    filters = JSON.parse(room.filters);
-                } catch (error) {
-                    throw new ConflictException('Failed to parse filters');
-                }
-
-                await this.roomsService.fetchAndSaveMovies(room, filters);
-
-                // Broadcasting the new movies to all users in the room
-                await this.roomsGateway.broadcastMoviesList('Get data!');
-
-                await this.updateAllUsersStatusToActive(roomKey);
-            }
-        }
-
         return 'User status updated successfully';
-    }
-
-    async areAllUsersWaiting(roomKey: string): Promise<boolean> {
-        const matches = await this.matchRepository.find({ where: { roomKey } });
-        return matches.every((match) => match.userStatus === MatchUserStatus.WAITING);
-    }
-
-    async getCommonMovies(roomKey: string): Promise<string[]> {
-        const matches = await this.matchRepository.find({ where: { roomKey } });
-        const movieLists = matches.map((match) => match.movieId);
-
-        if (movieLists.length === 0) return [];
-
-        return movieLists.reduce((commonMovies, movieList) => {
-            return commonMovies.filter((movie) => movieList.includes(movie));
-        }, movieLists[0]);
     }
 
     async updateAllUsersStatusToActive(roomKey: string): Promise<void> {
@@ -134,6 +66,38 @@ export class MatchService {
         for (const match of matches) {
             match.userStatus = MatchUserStatus.ACTIVE;
             await this.matchRepository.save(match);
+        }
+    }
+
+    async checkAndBroadcastIfNeeded(roomKey: string, userId: number): Promise<void> {
+        const match = await this.matchRepository.findOne({ where: { roomKey, userId } });
+        if (!match) {
+            throw new NotFoundException('Match not found');
+        }
+
+        match.userStatus = MatchUserStatus.WAITING;
+        await this.matchRepository.save(match);
+
+        const matches = await this.matchRepository.find({ where: { roomKey } });
+
+        const allUsersWaiting = matches.every((match) => match.userStatus === MatchUserStatus.WAITING);
+
+        if (allUsersWaiting || matches.length === 1) {
+            const room = await this.roomRepository.findOneBy({ key: roomKey });
+            if (!room) {
+                throw new NotFoundException('Room not found');
+            }
+
+            let filters;
+            try {
+                filters = JSON.parse(room.filters);
+            } catch (error) {
+                throw new ConflictException('Failed to parse filters');
+            }
+
+            await this.roomsService.fetchAndSaveMovies(room, filters);
+            await this.roomsGateway.broadcastMoviesList('Get new movies!');
+            await this.updateAllUsersStatusToActive(roomKey);
         }
     }
 }
