@@ -8,8 +8,11 @@ export interface ISMFormData {
     selectedYears: Year[];
 }
 
-export const constructUrl = (baseURL: string, formData: ISMFormData, page: number) => {
+export const constructUrl = (baseURL: string, formData: ISMFormData, page: number): string => {
     const params = new URLSearchParams();
+    if (!baseURL.endsWith('/')) {
+        baseURL += '/';
+    }
     params.append('page', page.toString());
     formData.selectedYears.forEach((year) => {
         params.append('year', year.label);
@@ -23,5 +26,5 @@ export const constructUrl = (baseURL: string, formData: ISMFormData, page: numbe
     formData.selectedCountries.forEach((country) => {
         params.append('countries.name', country.label);
     });
-    return `${baseURL}limit=10&notNullFields=rating.kp&notNullFields=name&${params.toString()}`;
+    return `${baseURL}?limit=10&notNullFields=rating.kp&notNullFields=name&${params.toString()}`;
 };

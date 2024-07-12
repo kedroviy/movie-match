@@ -24,7 +24,7 @@ export class RoomsService {
         private readonly userService: UserService,
         @Inject(forwardRef(() => RoomsGateway))
         private readonly roomsGateway: RoomsGateway,
-    ) {}
+    ) { }
 
     private roomStates = new Map<string, RoomState>();
     private readonly API_KEY: string = process.env.API_KEY_KINO;
@@ -168,7 +168,7 @@ export class RoomsService {
         } catch (error) {
             throw new ConflictException('Failed to parse filters');
         }
-        console.log(filters);
+
         const safeFilters = {
             excludeGenre: filters?.excludeGenre ?? [],
             genres: filters?.genres ?? [],
@@ -178,6 +178,10 @@ export class RoomsService {
         };
 
         const baseURL = process.env.URL_KINOPOISK;
+        console.log(baseURL);
+        if (!baseURL) {
+            throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
+        }
         const url = constructUrl(baseURL, safeFilters, 1);
 
         const config = {
@@ -186,7 +190,6 @@ export class RoomsService {
             },
         };
 
-        console.log('url: ', url);
         try {
             const response = await axios.get(url, config);
             const data = response.data;
@@ -204,7 +207,6 @@ export class RoomsService {
     }
 
     async fetchAndSaveMovies(room: Room, filters: any): Promise<any> {
-        console.log('fetch and save');
         const safeFilters = {
             excludeGenre: filters?.excludeGenre ?? [],
             genres: filters?.genres ?? [],
@@ -223,7 +225,6 @@ export class RoomsService {
             },
         };
 
-        console.log('url: ', url);
         try {
             const response = await axios.get(url, config);
             const data = response.data;
