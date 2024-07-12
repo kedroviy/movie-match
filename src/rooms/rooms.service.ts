@@ -15,6 +15,7 @@ import { RoomsGateway } from './rooms.gateway';
 import { constructUrl } from './rooms.utils';
 import { RoomState } from './rooms.interface';
 import axios from 'axios';
+import 'dotenv/config';
 
 @Injectable()
 export class RoomsService {
@@ -24,7 +25,7 @@ export class RoomsService {
         private readonly userService: UserService,
         @Inject(forwardRef(() => RoomsGateway))
         private readonly roomsGateway: RoomsGateway,
-    ) { }
+    ) {}
 
     private roomStates = new Map<string, RoomState>();
     private readonly API_KEY: string = process.env.API_KEY_KINO;
@@ -178,7 +179,7 @@ export class RoomsService {
         };
 
         const baseURL = process.env.URL_KINOPOISK;
-        console.log(baseURL);
+        console.log('baseUrl: ', baseURL);
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
         }
