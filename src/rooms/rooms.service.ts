@@ -16,6 +16,7 @@ import { constructUrl } from './rooms.utils';
 import { RoomState } from './rooms.interface';
 import axios from 'axios';
 import 'dotenv/config';
+import { URLS } from '@src/constants';
 
 @Injectable()
 export class RoomsService {
@@ -178,7 +179,7 @@ export class RoomsService {
             selectedCountries: filters?.selectedCountries ?? [],
         };
 
-        const baseURL = process.env.URL_KINOPOISK;
+        const baseURL = URLS.kp_url;
         console.log('baseUrl: ', baseURL);
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');

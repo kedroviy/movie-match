@@ -11,3 +11,7 @@ export const MESSAGES = {
     ROOM_ALREADY_EXIST: 'Room already exists for this user',
     FAILED_TO_CREATE_ROOM: 'Failed to create room',
 };
+
+export const URLS = {
+    kp_url: 'https://api.kinopoisk.dev/v1.4/movie?',
+};
