@@ -188,7 +188,7 @@ export class RoomsService {
 
         const config = {
             headers: {
-                'X-API-KEY': this.API_KEY,
+                'X-API-KEY': URLS.kp_key,
             },
         };
 
