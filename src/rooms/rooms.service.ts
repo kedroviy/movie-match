@@ -32,11 +32,12 @@ export class RoomsService {
     private readonly API_KEY: string = process.env.API_KEY_KINO;
 
     async createRoom(userId: number, name?: string, filters?: any): Promise<Match> {
+        console.log(`createRoom called for userId: ${userId}, name: ${name}, filters: ${filters}`);
+
         const existingRoom = await this.getUsersRooms(userId);
         if (existingRoom) {
             throw new ConflictException('Room already exists for this user');
         }
-        console.log(existingRoom, userId);
         const key = this.generateKey();
 
         const newRoom = this.roomRepository.create({
@@ -48,7 +49,7 @@ export class RoomsService {
         });
 
         await this.roomRepository.save(newRoom);
-
+        console.log(`New room created with ID: ${newRoom.id} and key: ${newRoom.key}`);
         const user = await this.userService.getUserById(userId);
 
         if (!user) {
@@ -103,14 +104,12 @@ export class RoomsService {
             this.roomsGateway.notifyRoomJoined(roomUser);
         }
 
-        await this.matchRepository.save(roomUser);
-
         const matchesInRoom = await this.getMatchesInRoom(key);
-        this.roomsGateway.handleRequestMatchData({
-            type: 'matchUpdated',
-            roomKey: key,
-            matches: matchesInRoom,
-        });
+        // this.roomsGateway.handleRequestMatchData({
+        //     type: 'matchUpdated',
+        //     roomKey: key,
+        //     matches: matchesInRoom,
+        // });
 
         return matchesInRoom;
     }

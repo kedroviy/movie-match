@@ -12,9 +12,9 @@ import {
     Get,
     UnauthorizedException,
     UseGuards,
+    BadRequestException,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
-import { User } from 'y/common/decorators/getData/getUserDecorator';
 import { GetUser } from '@src/user/user.interfaces';
 import {
     ApiBadRequestResponse,
@@ -28,12 +28,13 @@ import {
     ApiResponse,
     ApiTags,
 } from '@nestjs/swagger';
-import { RoomKeyResponse } from '@src/rooms/rooms.response.types';
 import { AuthGuard } from '@src/auth/guards/public-guard';
 import { Match } from '@src/match/match.model';
 import { MESSAGES } from '@src/constants';
 import { HasRoomResponse } from './dto/has-room-response.dto';
 import { MoviesResponse } from './dto/movies-response.dto';
+import { CreateRoomDto, CreateRoomKeyResponse } from './dto/create-room.dto';
+import { GetUser as GetUserDecorator } from './decorators/get-user.decorators';
 
 @Controller('rooms')
 @ApiTags('Rooms')
@@ -42,13 +43,27 @@ export class RoomsController {
     constructor(private readonly roomsService: RoomsService) {}
 
     @Post('create')
-    @ApiCreatedResponse({ type: RoomKeyResponse })
+    @UseGuards(AuthGuard)
+    @ApiCreatedResponse({ type: CreateRoomKeyResponse })
     @ApiConflictResponse({ description: MESSAGES.ROOM_ALREADY_EXIST })
     @ApiBadRequestResponse({ description: MESSAGES.FAILED_TO_CREATE_ROOM })
-    createRoom(@User() user: GetUser) {
+    async createRoom(
+        @GetUserDecorator() user: GetUser,
+        @Body() createRoomDto: CreateRoomDto,
+    ): Promise<CreateRoomKeyResponse> {
         const { id } = user;
-        console.log(this.roomsService.createRoom(id));
-        return this.roomsService.createRoom(id);
+        console.log(`createRoom called for userId: ${id}`);
+        try {
+            const room = await this.roomsService.createRoom(id, createRoomDto.name, createRoomDto.filters);
+            return room;
+        } catch (error) {
+            console.error('Error creating room:', error);
+            if (error instanceof ConflictException) {
+                throw new ConflictException(MESSAGES.ROOM_ALREADY_EXIST);
+            } else {
+                throw new BadRequestException(MESSAGES.FAILED_TO_CREATE_ROOM);
+            }
+        }
     }
 
     @Post('join/:key')
