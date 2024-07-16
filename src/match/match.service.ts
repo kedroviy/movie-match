@@ -100,4 +100,14 @@ export class MatchService {
             await this.updateAllUsersStatusToActive(roomKey);
         }
     }
+
+    async getCurrentMatchData(roomKey: string): Promise<Match> {
+        const match = await this.matchRepository.findOne({ where: { roomKey } });
+
+        if (!match) {
+            throw new NotFoundException('Match not found');
+        }
+
+        return match;
+    }
 }

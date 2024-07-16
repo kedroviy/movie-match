@@ -1,5 +1,6 @@
 import {
     Body,
+    ConflictException,
     Controller,
     Get,
     HttpCode,
@@ -162,5 +163,64 @@ export class MatchController {
     })
     async checkStatus(@Param('roomKey') roomKey: string, @Body('userId') userId: number): Promise<void> {
         await this.matchService.checkAndBroadcastIfNeeded(roomKey, userId);
+    }
+
+    @Get('specific-key-info/:roomKey')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Get data from a specific room' })
+    @ApiParam({
+        name: 'roomKey',
+        required: true,
+        description: 'The key of the room',
+        type: String,
+        example: '1234',
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'Match data received successfully',
+    })
+    @ApiResponse({
+        status: 404,
+        description: 'Match with this key was not found',
+        schema: {
+            example: {
+                statusCode: 404,
+                message: 'Match with this key was not found',
+                error: 'Not Found',
+            },
+        },
+    })
+    @ApiResponse({ status: 409, description: 'Conflict' })
+    @ApiResponse({ status: 500, description: 'Internal Server Error' })
+    async getSpecificMatchData(@Param('roomKey') roomKey: string): Promise<any> {
+        try {
+            await this.matchService.getCurrentMatchData(roomKey);
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.NOT_FOUND,
+                        message: error.message,
+                    },
+                    HttpStatus.NOT_FOUND,
+                );
+            } else if (error instanceof ConflictException) {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.CONFLICT,
+                        message: error.message,
+                    },
+                    HttpStatus.CONFLICT,
+                );
+            } else {
+                throw new HttpException(
+                    {
+                        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+                        message: 'Internal Server Error',
+                    },
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                );
+            }
+        }
     }
 }
