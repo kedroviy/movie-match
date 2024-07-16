@@ -178,6 +178,19 @@ export class MatchController {
     @ApiResponse({
         status: 200,
         description: 'Match data received successfully',
+        schema: {
+            example: {
+                id: 333,
+                roomId: '11111111-6666-0000-1111-e1356a43612c',
+                userName: 'Jhon Week',
+                role: 'killer',
+                roomKey: '123456',
+                vote: false,
+                userId: 0,
+                userStatus: 'ACTIVE',
+                movieId: ['123456', '654321'],
+            },
+        },
     })
     @ApiResponse({
         status: 404,
