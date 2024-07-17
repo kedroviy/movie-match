@@ -75,18 +75,18 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         this.server.emit('broadcastMovies', message);
     }
 
-    async handleJoinMatch(@MessageBody() data: { userId: number; roomId: string }, @ConnectedSocket() client: Socket) {
-        const match = await this.roomsService.joinRoom(data.userId, data.roomId);
-        client.join(data.roomId);
-        this.server.to(data.roomId).emit('userJoined', match);
-    }
-
     notifyRoomJoined(room: Match) {
-        this.server.emit('matchUpdated', {
+        this.server.emit('Join new user to match', {
             message: `${room.userName} has joined the room`,
             roomDetails: { id: room.roomId, name: room.userName },
             newUser: { ...room },
         });
+    }
+
+    async handleJoinMatch(@MessageBody() data: { userId: number; roomId: string }, @ConnectedSocket() client: Socket) {
+        const match = await this.roomsService.joinRoom(data.userId, data.roomId);
+        client.join(data.roomId);
+        this.server.to(data.roomId).emit('userJoined', match);
     }
 
     afterInit(server: Server) {

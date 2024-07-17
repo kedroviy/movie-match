@@ -32,8 +32,6 @@ export class RoomsService {
     private readonly API_KEY: string = process.env.API_KEY_KINO;
 
     async createRoom(userId: number, name?: string, filters?: any): Promise<Match> {
-        console.log(`createRoom called for userId: ${userId}, name: ${name}, filters: ${filters}`);
-
         const existingRoom = await this.getUsersRooms(userId);
         if (existingRoom) {
             throw new ConflictException('Room already exists for this user');
@@ -49,7 +47,6 @@ export class RoomsService {
         });
 
         await this.roomRepository.save(newRoom);
-        console.log(`New room created with ID: ${newRoom.id} and key: ${newRoom.key}`);
         const user = await this.userService.getUserById(userId);
 
         if (!user) {
@@ -105,11 +102,11 @@ export class RoomsService {
         }
 
         const matchesInRoom = await this.getMatchesInRoom(key);
-        // this.roomsGateway.handleRequestMatchData({
-        //     type: 'matchUpdated',
-        //     roomKey: key,
-        //     matches: matchesInRoom,
-        // });
+        this.roomsGateway.handleRequestMatchData({
+            type: 'matchUpdated',
+            roomKey: key,
+            matches: matchesInRoom,
+        });
 
         return matchesInRoom;
     }
@@ -179,6 +176,7 @@ export class RoomsService {
         };
 
         const baseURL = URLS.kp_url;
+        const currentPage = room.currentPage;
         console.log('baseUrl: ', baseURL);
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
@@ -196,6 +194,7 @@ export class RoomsService {
             const data = response.data;
 
             room.movies = JSON.stringify(data);
+            room.currentPage = currentPage + 1;
             await this.roomRepository.save(room);
 
             await this.roomsGateway.broadcastMoviesList('Get data!');
@@ -208,6 +207,7 @@ export class RoomsService {
     }
 
     async fetchAndSaveMovies(room: Room, filters: any): Promise<any> {
+        console.log('fetchAndSaveMovies started');
         const safeFilters = {
             excludeGenre: filters?.excludeGenre ?? [],
             genres: filters?.genres ?? [],
@@ -216,16 +216,20 @@ export class RoomsService {
             selectedCountries: filters?.selectedCountries ?? [],
         };
 
-        const baseURL = process.env.URL_KINOPOISK;
+        const baseURL = URLS.kp_url;
         const currentPage = room.currentPage;
-        const url = constructUrl(baseURL, safeFilters, currentPage);
+        console.log('baseUrl: ', baseURL);
+        if (!baseURL) {
+            throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
+        }
+        const url = constructUrl(baseURL, safeFilters, 1);
 
         const config = {
             headers: {
-                'X-API-KEY': this.API_KEY,
+                'X-API-KEY': URLS.kp_key,
             },
         };
-
+        console.log('fetchAndSaveMovies url: ', url);
         try {
             const response = await axios.get(url, config);
             const data = response.data;
@@ -370,7 +374,7 @@ export class RoomsService {
         });
 
         if (!room) {
-            throw new NotFoundException('Комната не найдена');
+            throw new NotFoundException('Room not found');
         }
 
         return room;

@@ -96,8 +96,8 @@ export class MatchService {
             }
 
             await this.roomsService.fetchAndSaveMovies(room, filters);
-            await this.roomsGateway.broadcastMoviesList('Get next page movies');
             await this.updateAllUsersStatusToActive(roomKey);
+            await this.roomsGateway.broadcastMoviesList('Get next page movies');
         }
     }
 
