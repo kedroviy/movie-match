@@ -175,8 +175,8 @@ export class RoomsService {
             selectedCountries: filters?.selectedCountries ?? [],
         };
 
-        const baseURL = URLS.kp_url;
-        const currentPage = room.currentPage;
+        const baseURL: string = URLS.kp_url;
+        const currentPage: number = room.currentPage;
         console.log('baseUrl: ', baseURL);
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
@@ -216,8 +216,8 @@ export class RoomsService {
             selectedCountries: filters?.selectedCountries ?? [],
         };
 
-        const baseURL = URLS.kp_url;
-        const currentPage = room.currentPage;
+        const baseURL: string = URLS.kp_url;
+        const currentPage: number = room.currentPage;
         console.log('baseUrl: ', baseURL);
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
