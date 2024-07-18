@@ -55,7 +55,7 @@ export class RoomsController {
         console.log(`createRoom called for userId: ${id}`);
         try {
             const room = await this.roomsService.createRoom(id, createRoomDto.name, createRoomDto.filters);
-            return room;
+            return { roomKey: room.roomKey };
         } catch (error) {
             console.error('Error creating room:', error);
             if (error instanceof ConflictException) {

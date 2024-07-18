@@ -24,5 +24,5 @@ export const constructUrl = (baseURL: string, formData: ISMFormData, page: numbe
     formData.selectedCountries.forEach((country) => {
         params.append('countries.name', country.label);
     });
-    return `${baseURL}limit=10&notNullFields=rating.kp&notNullFields=name&${params.toString()}`;
+    return `${baseURL}limit=10&notNullFields=rating.kp&notNullFields=name&notNullFields=countries.name&rating.kp=3-10&${params.toString()}`;
 };

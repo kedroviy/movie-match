@@ -181,7 +181,7 @@ export class RoomsService {
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
         }
-        const url = constructUrl(baseURL, safeFilters, 1);
+        const url = constructUrl(baseURL, safeFilters, currentPage);
 
         const config = {
             headers: {
@@ -222,7 +222,7 @@ export class RoomsService {
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
         }
-        const url = constructUrl(baseURL, safeFilters, 1);
+        const url = constructUrl(baseURL, safeFilters, currentPage);
 
         const config = {
             headers: {
