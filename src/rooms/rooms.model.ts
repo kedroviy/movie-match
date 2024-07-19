@@ -3,9 +3,8 @@ import { Match } from '@src/match/match.model';
 import { User } from '@src/user/user.model';
 
 export enum RoomStatus {
-    ACTIVE = 'ACTIVE',
-    WAITING = 'WAITING',
-    CLOSED = 'CLOSED',
+    SET = 'SET',
+    EXCEPTION = 'EXCEPTION',
 }
 
 @Entity()
@@ -26,7 +25,7 @@ export class Room {
     @Column({
         type: 'enum',
         enum: RoomStatus,
-        default: RoomStatus.WAITING,
+        default: RoomStatus.SET,
     })
     status: RoomStatus;
 

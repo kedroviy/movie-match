@@ -42,7 +42,7 @@ export class RoomsService {
             authorId: userId,
             key,
             name,
-            status: RoomStatus.WAITING,
+            status: RoomStatus.SET,
             filters,
         });
 
@@ -63,7 +63,7 @@ export class RoomsService {
         });
 
         await this.matchRepository.save(roomUser);
-        this.roomsGateway.notifyRoomJoined(roomUser);
+        await this.roomsGateway.notifyRoomJoined(roomUser);
         return {
             ...roomUser,
         };

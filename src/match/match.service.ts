@@ -4,8 +4,10 @@ import { Match, MatchUserStatus } from '@src/match/match.model';
 import { Repository } from 'typeorm';
 import { LikeMovieDto } from './dto/like-movie.dto';
 import { RoomsService } from '@src/rooms/rooms.service';
-import { Room } from '@src/rooms/rooms.model';
+import { Room, RoomStatus } from '@src/rooms/rooms.model';
 import { RoomsGateway } from '@src/rooms/rooms.gateway';
+import axios from 'axios';
+import { URLS } from '@src/constants';
 
 @Injectable()
 export class MatchService {
@@ -16,8 +18,16 @@ export class MatchService {
         private readonly roomsGateway: RoomsGateway,
     ) {}
 
+    baseURL: string = URLS.kp_url;
+
     async likeMovie(likeMovieDto: LikeMovieDto): Promise<string> {
         const { roomKey, userId, movieId } = likeMovieDto;
+        const room = await this.roomRepository.findOneBy({ key: roomKey });
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        console.log('room: ', room);
 
         let match = await this.matchRepository.findOne({ where: { roomKey, userId } });
 
@@ -38,6 +48,12 @@ export class MatchService {
         }
 
         await this.matchRepository.save(match);
+
+        if (room.status === RoomStatus.SET) {
+            await this.checkAndBroadcastIfNeeded(roomKey, userId);
+        } else if (room.status === RoomStatus.EXCEPTION) {
+            await this.checkAndProcessMatchedMovies(roomKey, userId);
+        }
 
         return 'Movie liked successfully';
     }
@@ -99,6 +115,27 @@ export class MatchService {
             await this.updateAllUsersStatusToActive(roomKey);
             await this.roomsGateway.broadcastMoviesList('Get next page movies');
         }
+
+        const commonMovieIds = await this.getCommonMovieIds(roomKey);
+        if (commonMovieIds.length >= 8) {
+            await this.fetchAndSaveMoviesData(roomKey, commonMovieIds);
+            await this.roomsGateway.broadcastMoviesList('Movies data updated');
+        }
+    }
+
+    private async checkAndProcessMatchedMovies(roomKey: string, userId: number): Promise<void> {
+        const match = await this.matchRepository.findOne({ where: { roomKey, userId } });
+        if (!match) {
+            throw new NotFoundException('Match not found');
+        }
+
+        const commonMovieIds = await this.getCommonMovieIds(roomKey);
+        if (commonMovieIds.length === 1) {
+            await this.roomsGateway.broadcastMoviesList('Final movie selected');
+        } else {
+            await this.fetchAndSaveMoviesData(roomKey, commonMovieIds);
+            await this.roomsGateway.broadcastMoviesList('Movies data updated');
+        }
     }
 
     async getCurrentMatchData(roomKey: string): Promise<Match> {
@@ -109,5 +146,43 @@ export class MatchService {
         }
 
         return match;
+    }
+
+    private async getCommonMovieIds(roomKey: string): Promise<string[]> {
+        const matches = await this.matchRepository.find({ where: { roomKey } });
+
+        const movieIdCounts: Record<string, number> = {};
+
+        for (const match of matches) {
+            for (const movieId of match.movieId) {
+                if (movieIdCounts[movieId]) {
+                    movieIdCounts[movieId]++;
+                } else {
+                    movieIdCounts[movieId] = 1;
+                }
+            }
+        }
+
+        const commonMovieIds = Object.keys(movieIdCounts).filter((movieId) => movieIdCounts[movieId] >= 8);
+
+        return commonMovieIds;
+    }
+
+    async fetchMoviesFromIds(baseURL: string, ids: string[]): Promise<any> {
+        const url = `${baseURL}/v1.4/movie?page=1&limit=10&${ids.map((id) => `id=${id}`).join('&')}`;
+        const response = await axios.get(url);
+        return response.data;
+    }
+
+    private async fetchAndSaveMoviesData(roomKey: string, movieIds: string[]): Promise<void> {
+        const moviesData = await this.fetchMoviesFromIds(this.baseURL, movieIds);
+
+        const room = await this.roomRepository.findOneBy({ key: roomKey });
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        room.movies = moviesData;
+        await this.roomRepository.save(room);
     }
 }
