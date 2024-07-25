@@ -63,7 +63,7 @@ export class RoomsService {
         });
 
         await this.matchRepository.save(roomUser);
-        await this.roomsGateway.notifyRoomJoined(roomUser);
+
         return {
             ...roomUser,
         };

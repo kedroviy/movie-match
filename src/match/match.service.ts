@@ -4,7 +4,7 @@ import { Match, MatchUserStatus } from '@src/match/match.model';
 import { Repository } from 'typeorm';
 import { LikeMovieDto } from './dto/like-movie.dto';
 import { RoomsService } from '@src/rooms/rooms.service';
-import { Room, RoomStatus } from '@src/rooms/rooms.model';
+import { Room } from '@src/rooms/rooms.model';
 import { RoomsGateway } from '@src/rooms/rooms.gateway';
 import axios from 'axios';
 import { URLS } from '@src/constants';
@@ -49,11 +49,13 @@ export class MatchService {
 
         await this.matchRepository.save(match);
 
-        if (room.status === RoomStatus.SET) {
-            await this.checkAndBroadcastIfNeeded(roomKey, userId);
-        } else if (room.status === RoomStatus.EXCEPTION) {
-            await this.checkAndProcessMatchedMovies(roomKey, userId);
-        }
+        // if (match.userStatus === MatchUserStatus.WAITING) {
+        //     if (room.status === RoomStatus.SET) {
+        //         await this.checkAndBroadcastIfNeeded(roomKey, userId);
+        //     } else if (room.status === RoomStatus.EXCEPTION) {
+        //         await this.checkAndProcessMatchedMovies(roomKey, userId);
+        //     }
+        // }
 
         return 'Movie liked successfully';
     }
@@ -91,6 +93,11 @@ export class MatchService {
             throw new NotFoundException('Match not found');
         }
 
+        const room = await this.roomRepository.findOneBy({ key: roomKey });
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
         match.userStatus = MatchUserStatus.WAITING;
         await this.matchRepository.save(match);
 
@@ -123,20 +130,20 @@ export class MatchService {
         }
     }
 
-    private async checkAndProcessMatchedMovies(roomKey: string, userId: number): Promise<void> {
-        const match = await this.matchRepository.findOne({ where: { roomKey, userId } });
-        if (!match) {
-            throw new NotFoundException('Match not found');
-        }
+    // private async checkAndProcessMatchedMovies(roomKey: string, userId: number): Promise<void> {
+    //     const match = await this.matchRepository.findOne({ where: { roomKey, userId } });
+    //     if (!match) {
+    //         throw new NotFoundException('Match not found');
+    //     }
 
-        const commonMovieIds = await this.getCommonMovieIds(roomKey);
-        if (commonMovieIds.length === 1) {
-            await this.roomsGateway.broadcastMoviesList('Final movie selected');
-        } else {
-            await this.fetchAndSaveMoviesData(roomKey, commonMovieIds);
-            await this.roomsGateway.broadcastMoviesList('Movies data updated');
-        }
-    }
+    //     const commonMovieIds = await this.getCommonMovieIds(roomKey);
+    //     if (commonMovieIds.length === 1) {
+    //         await this.roomsGateway.broadcastMoviesList('Final movie selected');
+    //     } else {
+    //         await this.fetchAndSaveMoviesData(roomKey, commonMovieIds);
+    //         await this.roomsGateway.broadcastMoviesList('Movies data updated');
+    //     }
+    // }
 
     async getCurrentMatchData(roomKey: string): Promise<Match> {
         const match = await this.matchRepository.findOne({ where: { roomKey } });
