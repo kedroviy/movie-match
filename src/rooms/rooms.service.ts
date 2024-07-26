@@ -177,7 +177,6 @@ export class RoomsService {
 
         const baseURL: string = URLS.kp_url;
         const currentPage: number = room.currentPage;
-        console.log('baseUrl: ', baseURL);
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
         }
@@ -203,7 +202,7 @@ export class RoomsService {
             throw new Error('Failed to fetch data from external API');
         }
 
-        return { status: 'success' };
+        return { status: 'started' };
     }
 
     async fetchAndSaveMovies(room: Room, filters: any): Promise<any> {
@@ -218,7 +217,6 @@ export class RoomsService {
 
         const baseURL: string = URLS.kp_url;
         const currentPage: number = room.currentPage;
-        console.log('baseUrl: ', baseURL);
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
         }
@@ -229,7 +227,6 @@ export class RoomsService {
                 'X-API-KEY': URLS.kp_key,
             },
         };
-        console.log('fetchAndSaveMovies url: ', url);
         try {
             const response = await axios.get(url, config);
             const data = response.data;
@@ -258,8 +255,6 @@ export class RoomsService {
         }
 
         try {
-            console.log('movies: ', matchMovies);
-
             return await matchMovies;
         } catch (error) {
             console.error('Error in getNextMovie:', error);

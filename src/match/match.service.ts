@@ -161,7 +161,10 @@ export class MatchService {
         const movieIdCounts: Record<string, number> = {};
 
         for (const match of matches) {
-            for (const movieId of match.movieId) {
+            const movieIds = Array.isArray(match.movieId) ? match.movieId : [match.movieId];
+
+            for (const movieId of movieIds) {
+                console.log('match.movieId: ', movieIds);
                 if (movieIdCounts[movieId]) {
                     movieIdCounts[movieId]++;
                 } else {
