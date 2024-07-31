@@ -102,11 +102,7 @@ export class RoomsService {
         }
 
         const matchesInRoom = await this.getMatchesInRoom(key);
-        this.roomsGateway.handleRequestMatchData({
-            type: 'matchUpdated',
-            roomKey: key,
-            matches: matchesInRoom,
-        });
+        this.roomsGateway.broadcastMatchDataUpdate('Match Room Updated');
 
         return matchesInRoom;
     }
@@ -196,7 +192,7 @@ export class RoomsService {
             room.currentPage = currentPage + 1;
             await this.roomRepository.save(room);
 
-            await this.roomsGateway.broadcastMoviesList('Get data!');
+            // await this.roomsGateway.broadcastMoviesList('Get data!');
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');

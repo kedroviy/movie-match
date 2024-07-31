@@ -45,7 +45,7 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         const message = data?.message ?? 'No message provided';
         console.log(`Received message: ${message}`);
 
-        this.server.emit('broadcastMessage', data);
+        this.server.emit('broadcastMovies', data);
     }
 
     @SubscribeMessage('requestMatchData')
@@ -65,6 +65,12 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         }
     }
 
+    @SubscribeMessage('startBroadcastingMovies')
+    async handleBroadcastingMovies(@MessageBody() message: string) {
+        console.log('broadcast movie list');
+        await this.server.emit('broadcastMovies', message);
+    }
+
     broadcastMoviesList(messageForClient: string) {
         const message = {
             type: 'broadcastMovies',
@@ -73,6 +79,14 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         console.log('broadcast movie list', message);
 
         this.server.emit('broadcastMovies', message);
+    }
+
+    broadcastMatchDataUpdate(messageForClient: string) {
+        const message = {
+            type: 'broadcastMatchDataUpdated',
+            messageForClient,
+        };
+        this.server.emit('broadcastMatchDataUpdated', message);
     }
 
     notifyRoomJoined(room: Match) {

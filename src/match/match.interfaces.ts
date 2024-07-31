@@ -8,7 +8,7 @@ export interface Match {
     userName: string;
     role: string;
     vote: boolean;
-    roomId: number;
+    roomId: string;
     userStatus: string;
     room: Room;
     users: any;
@@ -19,3 +19,16 @@ export interface MatchError {
 }
 
 export type MatchResult = Match | MatchError;
+
+export interface MatchResponse {
+    id?: number;
+    movieId?: string[];
+    userId?: number;
+    roomKey?: string;
+    roomId?: string;
+    vote?: boolean;
+    userName?: string;
+    role?: string;
+    userStatus?: string;
+    message?: string;
+}

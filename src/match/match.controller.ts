@@ -6,8 +6,10 @@ import {
     HttpCode,
     HttpException,
     HttpStatus,
+    InternalServerErrorException,
     NotFoundException,
     Param,
+    ParseIntPipe,
     Patch,
     Post,
 } from '@nestjs/common';
@@ -16,6 +18,7 @@ import { ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/s
 import { MatchService } from './match.service';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { updateUserStatusExamples } from './match-swagger-examples';
+import { MatchResponse } from './match.interfaces';
 
 @ApiTags('Match')
 @Controller('match')
@@ -29,6 +32,7 @@ export class MatchController {
     async likeMovie(@Body() likeMovieDto: LikeMovieDto): Promise<{ message: string }> {
         try {
             const message = await this.matchService.likeMovie(likeMovieDto);
+            console.log('like message: ', message);
             return { message };
         } catch (error) {
             console.log(error);
@@ -207,7 +211,7 @@ export class MatchController {
     @ApiResponse({ status: 500, description: 'Internal Server Error' })
     async getSpecificMatchData(@Param('roomKey') roomKey: string): Promise<any> {
         try {
-            await this.matchService.getCurrentMatchData(roomKey);
+            return await this.matchService.getCurrentMatchData(roomKey);
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw new HttpException(
@@ -234,6 +238,27 @@ export class MatchController {
                     HttpStatus.INTERNAL_SERVER_ERROR,
                 );
             }
+        }
+    }
+
+    @Get(':userId')
+    @ApiOperation({ summary: 'Get information about a user by his user ID' })
+    @ApiParam({ name: 'userId', description: 'User ID', type: 'integer' })
+    @ApiResponse({
+        status: 200,
+        description: 'User record found or message indicating user is not found',
+    })
+    @ApiResponse({ status: 500, description: 'Internal Server Error' })
+    async getMatchByUserId(@Param('userId', ParseIntPipe) userId: number): Promise<MatchResponse> {
+        try {
+            const match = await this.matchService.findByUserId(userId);
+            if (!match) {
+                return { message: 'User not found' };
+            }
+            return match;
+        } catch (error) {
+            console.error('Error getting match by userId:', error);
+            throw new InternalServerErrorException('Internal Server Error');
         }
     }
 }
