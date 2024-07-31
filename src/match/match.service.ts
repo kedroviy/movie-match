@@ -186,14 +186,14 @@ export class MatchService {
         }
     }
 
-    async getCurrentMatchData(roomKey: string): Promise<Match> {
-        const match = await this.matchRepository.findOne({ where: { roomKey } });
+    async getCurrentMatchData(roomKey: string): Promise<Match[]> {
+        const matches = await this.matchRepository.find({ where: { roomKey } });
 
-        if (!match) {
+        if (matches.length === 0) {
             throw new NotFoundException('Match not found');
         }
-        console.log('this current match data: ', match);
-        return match;
+        console.log('Current match data: ', matches);
+        return matches;
     }
 
     async findByUserId(userId: number): Promise<Match | null> {

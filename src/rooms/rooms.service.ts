@@ -64,9 +64,7 @@ export class RoomsService {
 
         await this.matchRepository.save(roomUser);
 
-        return {
-            ...roomUser,
-        };
+        return { ...roomUser };
     }
 
     async joinRoom(userId: number, key: string): Promise<any> {
