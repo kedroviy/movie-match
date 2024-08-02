@@ -2,7 +2,7 @@ import { Room } from '@src/rooms/rooms.model';
 
 export interface Match {
     id: number;
-    movieId: string[];
+    movieId: number[];
     userId: number;
     roomKey: string;
     userName: string;
@@ -22,7 +22,7 @@ export type MatchResult = Match | MatchError;
 
 export interface MatchResponse {
     id?: number;
-    movieId?: string[];
+    movieId?: number[];
     userId?: number;
     roomKey?: string;
     roomId?: string;

@@ -86,6 +86,7 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
             type: 'broadcastMatchDataUpdated',
             messageForClient,
         };
+        console.log('broadcastMatchDataUpdated', message);
         this.server.emit('broadcastMatchDataUpdated', message);
     }
 

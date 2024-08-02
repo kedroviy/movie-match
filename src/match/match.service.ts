@@ -23,11 +23,10 @@ export class MatchService {
     async likeMovie(likeMovieDto: LikeMovieDto): Promise<string> {
         const { roomKey, userId, movieId } = likeMovieDto;
         const room = await this.roomRepository.findOneBy({ key: roomKey });
+
         if (!room) {
             throw new NotFoundException('Room not found');
         }
-
-        console.log('room: ', room);
 
         let match = await this.matchRepository.findOne({ where: { roomKey, userId } });
 
@@ -102,8 +101,6 @@ export class MatchService {
                 if (commonMovieIds.length >= 8) {
                     const moviesData = await this.fetchMoviesFromIds(this.baseURL, commonMovieIds);
                     room.movies = moviesData;
-                    console.log('room.movies: ', room.movies);
-                    console.log('room: ', room);
                     room.status = RoomStatus.EXCEPTION;
                     await this.roomRepository.save(room);
 
@@ -123,54 +120,67 @@ export class MatchService {
 
                     await this.roomsService.fetchAndSaveMovies(room, filters);
                     await this.updateAllUsersStatusToActive(roomKey);
-                    await this.roomsGateway.broadcastMoviesList('Get next page movies');
+                    await this.roomsGateway.broadcastMoviesList('Movies data updated');
                 }
             } else if (room.status === RoomStatus.EXCEPTION) {
                 const commonMovieIds = await this.getCommonMovieIds(roomKey);
-                if (commonMovieIds.length > 0) {
-                    console.log('movies room: ', room.movies);
-                    room.movies = room.movies.docs.filter((movie: any) => commonMovieIds.includes(movie.id));
-                    await this.roomRepository.save(room);
 
-                    if (room.movies.total === 1) {
-                        await this.roomsGateway.broadcastMoviesList('Final movie selected');
-                    } else {
-                        await this.roomsGateway.broadcastMoviesList('Movies data updated');
-                    }
+                if (commonMovieIds.length > 0) {
+                    await this.updateRoomMovies(roomKey, commonMovieIds);
+                    await this.clearMatchMovieIds(roomKey);
                 } else {
-                    await this.roomsGateway.broadcastMoviesList('No common movies found');
+                    await this.roomsGateway.broadcastMoviesList('Movies data updated');
                 }
             }
         }
     }
 
-    private async getCommonMovieIds(roomKey: string): Promise<string[]> {
+    private async getCommonMovieIds(roomKey: string): Promise<number[]> {
+        const matches = await this.matchRepository.find({ where: { roomKey } });
+        const allMovieIds = matches.map((match) => match.movieId.map(Number) || []);
+
+        if (allMovieIds.length === 0) return [];
+
+        const [first, ...rest] = allMovieIds;
+        const commonIds = first.filter((id) => rest.every((array) => array.includes(id)));
+
+        return commonIds;
+    }
+
+    async updateRoomMovies(roomKey: string, commonMovieIds: number[]) {
+        const room = await this.roomRepository.findOne({ where: { key: roomKey } });
+
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        const filteredMovies = room.movies.docs.filter((movie: any) => commonMovieIds.includes(movie.id));
+        const updatedMoviesData = {
+            ...room.movies,
+            docs: filteredMovies,
+            total: filteredMovies.length,
+        };
+        room.movies = updatedMoviesData;
+        await this.roomRepository.save(room);
+
+        if (filteredMovies.length === 1) {
+            await this.roomsGateway.broadcastMoviesList('Final movie selected');
+        } else {
+            await this.roomsGateway.broadcastMoviesList('Movies data updated');
+        }
+    }
+
+    async clearMatchMovieIds(roomKey: string) {
         const matches = await this.matchRepository.find({ where: { roomKey } });
 
-        const movieIdCounts: Record<string, number> = {};
-
         for (const match of matches) {
-            const movieIds = Array.isArray(match.movieId) ? match.movieId : [match.movieId];
-
-            for (const movieId of movieIds) {
-                if (movieIdCounts[movieId]) {
-                    movieIdCounts[movieId]++;
-                } else {
-                    movieIdCounts[movieId] = 1;
-                }
-            }
+            match.movieId = [];
+            await this.matchRepository.save(match);
         }
-
-        const commonMovieIds = Object.keys(movieIdCounts).filter(
-            (movieId) => movieIdCounts[movieId] === matches.length,
-        );
-
-        return commonMovieIds;
     }
 
-    async fetchMoviesFromIds(baseURL: string, ids: string[]): Promise<any> {
+    async fetchMoviesFromIds(baseURL: string, ids: number[]): Promise<any> {
         const url = `${baseURL}page=1&limit=10&${ids.map((id) => `id=${id}`).join('&')}`;
-        console.log('url with id: ', url);
         const config = {
             headers: {
                 'X-API-KEY': URLS.kp_key,
@@ -192,7 +202,6 @@ export class MatchService {
         if (matches.length === 0) {
             throw new NotFoundException('Match not found');
         }
-        console.log('Current match data: ', matches);
         return matches;
     }
 

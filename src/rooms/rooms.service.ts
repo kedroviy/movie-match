@@ -109,7 +109,6 @@ export class RoomsService {
         console.log('userId: ', userId, 'roomId: ', roomId, 'filters: ', filters);
         const room = await this.roomRepository.findOneBy({ id: roomId });
 
-        console.log('room: ', userId);
         if (!room) {
             throw new NotFoundException('Room not found');
         }
@@ -190,7 +189,7 @@ export class RoomsService {
             room.currentPage = currentPage + 1;
             await this.roomRepository.save(room);
 
-            // await this.roomsGateway.broadcastMoviesList('Get data!');
+            // await this.roomsGateway.broadcastMoviesList('Movies data updated');
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');
@@ -200,7 +199,6 @@ export class RoomsService {
     }
 
     async fetchAndSaveMovies(room: Room, filters: any): Promise<any> {
-        console.log('fetchAndSaveMovies started');
         const safeFilters = {
             excludeGenre: filters?.excludeGenre ?? [],
             genres: filters?.genres ?? [],
@@ -230,7 +228,7 @@ export class RoomsService {
 
             await this.roomRepository.save(room);
 
-            await this.roomsGateway.broadcastMoviesList('Get data!');
+            await this.roomsGateway.broadcastMoviesList('Movies data updated');
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');

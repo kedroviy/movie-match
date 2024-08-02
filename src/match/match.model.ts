@@ -13,7 +13,7 @@ export class Match {
     id: number;
 
     @Column('simple-array', { nullable: true })
-    movieId: string[];
+    movieId: number[];
 
     @Column()
     userId: number;

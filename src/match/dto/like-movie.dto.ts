@@ -12,5 +12,5 @@ export class LikeMovieDto {
 
     @ApiProperty({ example: 12345, description: 'ID of the movie' })
     @IsInt()
-    readonly movieId: string;
+    readonly movieId: number;
 }
