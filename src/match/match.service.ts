@@ -154,18 +154,21 @@ export class MatchService {
             throw new NotFoundException('Room not found');
         }
 
-        const filteredMovies = room.movies.docs.filter((movie: any) => commonMovieIds.includes(movie.id));
-        const updatedMoviesData = {
-            ...room.movies,
-            docs: filteredMovies,
-            total: filteredMovies.length,
-        };
-        room.movies = updatedMoviesData;
-        await this.roomRepository.save(room);
-
-        if (filteredMovies.length === 1) {
+        if (commonMovieIds.length === 1) {
+            const movie = await this.fetchMovieById(commonMovieIds[0]);
+            room.movies = movie;
+            await this.roomRepository.save(room);
             await this.roomsGateway.broadcastMoviesList('Final movie selected');
         } else {
+            const filteredMovies = room.movies.docs.filter((movie: any) => commonMovieIds.includes(movie.id));
+            const updatedMoviesData = {
+                ...room.movies,
+                docs: filteredMovies,
+                total: filteredMovies.length,
+            };
+            room.movies = updatedMoviesData;
+
+            await this.roomRepository.save(room);
             await this.roomsGateway.broadcastMoviesList('Movies data updated');
         }
     }
@@ -190,6 +193,23 @@ export class MatchService {
         try {
             const response = await axios.get(url, config);
             return response.data;
+        } catch (error) {
+            console.log(error);
+            throw new Error('Failed to fetch data from external API');
+        }
+    }
+
+    async fetchMovieById(id: number): Promise<any> {
+        const url = `https://api.kinopoisk.dev/v1.4/movie/${id}`;
+        const config = {
+            headers: {
+                'X-API-KEY': URLS.kp_key,
+            },
+        };
+
+        try {
+            const response = await axios.get(url, config);
+            return response.data.docs;
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');

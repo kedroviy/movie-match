@@ -125,7 +125,7 @@ export class RoomsService {
         room.filters = JSON.stringify(filters);
 
         await this.roomRepository.save(room);
-
+        console.log('Filters saved:', room.filters);
         await this.roomsGateway.broadcastFilters(roomKey, filters);
 
         return { message: 'Filters successfully updated.' };
