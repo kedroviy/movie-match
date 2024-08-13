@@ -7,7 +7,7 @@ import {
     forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { Room, RoomStatus } from '@src/rooms/rooms.model';
 import { Match, MatchUserStatus } from '@src/match/match.model';
 import { UserService } from '@src/user/user.service';
@@ -17,6 +17,7 @@ import { RoomState } from './rooms.interface';
 import axios from 'axios';
 import 'dotenv/config';
 import { URLS } from '@src/constants';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class RoomsService {
@@ -42,7 +43,7 @@ export class RoomsService {
             authorId: userId,
             key,
             name,
-            status: RoomStatus.SET,
+            status: RoomStatus.PENDING,
             filters,
         });
 
@@ -65,6 +66,25 @@ export class RoomsService {
         await this.matchRepository.save(roomUser);
 
         return { ...roomUser };
+    }
+
+    @Cron(CronExpression.EVERY_30_MINUTES)
+    async cleanupOldRooms(): Promise<void> {
+        const cutoffTime = new Date(Date.now() - 45 * 60 * 1000);
+
+        const roomsToDelete = await this.roomRepository.find({
+            where: {
+                createdAt: LessThan(cutoffTime),
+            },
+            relations: ['matches'],
+        });
+
+        for (const room of roomsToDelete) {
+            await this.matchRepository.remove(room.matches);
+            await this.roomRepository.remove(room);
+        }
+
+        console.log(`Deleted ${roomsToDelete.length} rooms older than 45 minutes`);
     }
 
     async joinRoom(userId: number, key: string): Promise<any> {
@@ -96,7 +116,7 @@ export class RoomsService {
                 userStatus: MatchUserStatus.ACTIVE,
             });
             await this.matchRepository.save(roomUser);
-            this.roomsGateway.notifyRoomJoined(roomUser);
+            // this.roomsGateway.notifyRoomJoined(roomUser);
         }
 
         const matchesInRoom = await this.getMatchesInRoom(key);
@@ -187,6 +207,7 @@ export class RoomsService {
 
             room.movies = JSON.stringify(data);
             room.currentPage = currentPage + 1;
+            room.status = RoomStatus.SET;
             await this.roomRepository.save(room);
 
             // await this.roomsGateway.broadcastMoviesList('Movies data updated');

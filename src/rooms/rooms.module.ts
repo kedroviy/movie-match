@@ -9,9 +9,15 @@ import { RoomsGateway } from './rooms.gateway';
 import { MatchService } from '@src/match/match.service';
 import { AuthModule } from '@src/auth/auth.module';
 import { MatchMovie } from '@src/match-movies/match-movies.model';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Room, Match, MatchMovie]), UserModule, forwardRef(() => AuthModule)],
+    imports: [
+        TypeOrmModule.forFeature([Room, Match, MatchMovie]),
+        UserModule,
+        forwardRef(() => AuthModule),
+        ScheduleModule.forRoot(),
+    ],
     providers: [RoomsService, RoomsGateway, MatchService],
     controllers: [RoomsController],
     exports: [RoomsService, RoomsGateway],

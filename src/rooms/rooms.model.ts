@@ -1,8 +1,18 @@
-import { Entity, PrimaryGeneratedColumn, Column, Unique, OneToMany, JoinTable, ManyToMany } from 'typeorm';
+import {
+    Entity,
+    PrimaryGeneratedColumn,
+    Column,
+    Unique,
+    OneToMany,
+    JoinTable,
+    ManyToMany,
+    CreateDateColumn,
+} from 'typeorm';
 import { Match } from '@src/match/match.model';
 import { User } from '@src/user/user.model';
 
 export enum RoomStatus {
+    PENDING = 'PENDING',
     SET = 'SET',
     EXCEPTION = 'EXCEPTION',
 }
@@ -35,10 +45,7 @@ export class Room {
     @Column({ type: 'text', nullable: true })
     filters: string;
 
-    @Column({
-        type: 'timestamp',
-        default: () => 'CURRENT_TIMESTAMP',
-    })
+    @CreateDateColumn()
     createdAt: Date;
 
     @ManyToMany(() => User)
