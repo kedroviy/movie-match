@@ -91,7 +91,7 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     }
 
     notifyRoomJoined(room: Match) {
-        this.server.emit('Join new user to match', {
+        this.server.emit('matchUpdated', {
             message: `${room.userName} has joined the room`,
             roomDetails: { id: room.roomId, name: room.userName },
             newUser: { ...room },
