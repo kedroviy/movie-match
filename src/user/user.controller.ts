@@ -47,12 +47,11 @@ export class UserController {
         type: GetMeType,
     })
     @ApiNotFoundResponse({ description: MESSAGES.USER_NOT_FOUND })
-    @ApiBearerAuth()
     getMe(@User() user: GetUser) {
         return this.userService.getMe(user.email);
     }
-
     @UseGuards(AuthGuard)
+    @ApiBearerAuth()
     @Patch('/update-username')
     @ApiBody({
         description: MESSAGES.OPTIONS_FOR_UPDATE_USERNAME,
@@ -76,6 +75,7 @@ export class UserController {
 
     @Delete(':email')
     @UseGuards(AuthGuard)
+    @ApiBearerAuth()
     @HttpCode(HttpStatus.OK)
     @ApiProperty({ description: METHODES.DELETE_ACCOUNT })
     @ApiParam({ name: 'email', required: true, description: MESSAGES.USER_EMAIL })
