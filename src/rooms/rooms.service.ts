@@ -186,6 +186,7 @@ export class RoomsService {
             selectedYears: filters?.selectedYears ?? [],
             selectedGenres: filters?.selectedGenres ?? [],
             selectedCountries: filters?.selectedCountries ?? [],
+            selectedRating: filters?.selectedRating ?? [],
         };
 
         const baseURL: string = URLS.kp_url;
@@ -209,8 +210,7 @@ export class RoomsService {
             room.currentPage = currentPage + 1;
             room.status = RoomStatus.SET;
             await this.roomRepository.save(room);
-
-            // await this.roomsGateway.broadcastMoviesList('Movies data updated');
+            await this.roomsGateway.broadcastMoviesList('Movies data updated');
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');
@@ -226,6 +226,7 @@ export class RoomsService {
             selectedYears: filters?.selectedYears ?? [],
             selectedGenres: filters?.selectedGenres ?? [],
             selectedCountries: filters?.selectedCountries ?? [],
+            selectedRating: filters?.selectedRating ?? [],
         };
 
         const baseURL: string = URLS.kp_url;

@@ -6,6 +6,7 @@ export interface ISMFormData {
     selectedCountries: Country[];
     selectedGenres: Genre[];
     selectedYears: Year[];
+    selectedRating: [number, number];
 }
 
 export const constructUrl = (baseURL: string, formData: ISMFormData, page: number): string => {
@@ -24,5 +25,10 @@ export const constructUrl = (baseURL: string, formData: ISMFormData, page: numbe
     formData.selectedCountries.forEach((country) => {
         params.append('countries.name', country.label);
     });
-    return `${baseURL}limit=10&notNullFields=rating.kp&notNullFields=name&notNullFields=countries.name&rating.kp=3-10&${params.toString()}`;
+    if (formData.selectedRating && formData.selectedRating.length === 2) {
+        const [minRating, maxRating] = formData.selectedRating;
+        params.append('rating.kp', `${minRating}-${maxRating}`);
+    }
+
+    return `${baseURL}limit=10&notNullFields=name&notNullFields=countries.name&${params.toString()}`;
 };

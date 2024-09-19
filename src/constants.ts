@@ -10,6 +10,11 @@ export const MESSAGES = {
     USER_INFROMATION_SUCCESSULLY_RETRIEVED: 'User information successfully retrieved',
     ROOM_ALREADY_EXIST: 'Room already exists for this user',
     FAILED_TO_CREATE_ROOM: 'Failed to create room',
+    ACCOUNT_SUCCESSFULLY_DELETED: 'Account successfully deleted',
+};
+
+export const METHODES = {
+    DELETE_ACCOUNT: 'Delete a user account',
 };
 
 export const URLS = {

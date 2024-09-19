@@ -1,9 +1,13 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
+    HttpCode,
+    HttpStatus,
     InternalServerErrorException,
     NotFoundException,
+    Param,
     Patch,
     UseGuards,
 } from '@nestjs/common';
@@ -13,6 +17,7 @@ import {
     ApiBody,
     ApiCreatedResponse,
     ApiNotFoundResponse,
+    ApiParam,
     ApiProperty,
     ApiQuery,
     ApiResponse,
@@ -22,7 +27,7 @@ import { GetMeType } from './user.response.types';
 import { User } from '@app/common/decorators/getData/getUserDecorator';
 import { GetUser } from '@src/user/user.interfaces';
 import { AuthGuard } from '@src/auth/guards/public-guard';
-import { MESSAGES } from '@src/constants';
+import { MESSAGES, METHODES } from '@src/constants';
 
 class UpdateUsernameDto {
     userId: string;
@@ -66,6 +71,33 @@ export class UserController {
                 throw error;
             }
             throw new InternalServerErrorException('Failed to update username. Please try again later.');
+        }
+    }
+
+    @Delete(':email')
+    @HttpCode(HttpStatus.OK)
+    @ApiProperty({ description: METHODES.DELETE_ACCOUNT })
+    @ApiParam({ name: 'email', required: true, description: MESSAGES.USER_EMAIL })
+    @ApiResponse({
+        status: 200,
+        description: MESSAGES.ACCOUNT_SUCCESSFULLY_DELETED,
+        schema: { example: { message: MESSAGES.ACCOUNT_SUCCESSFULLY_DELETED } },
+    })
+    @ApiResponse({
+        status: 404,
+        description: MESSAGES.USER_NOT_FOUND,
+        schema: { example: { message: MESSAGES.USER_NOT_FOUND } },
+    })
+    @ApiResponse({ status: 500, description: 'An error occurred while deleting the account' })
+    async deleteUser(@Param('email') email: string): Promise<{ message: string }> {
+        try {
+            await this.userService.deleteUserAccount(email);
+            return { message: MESSAGES.ACCOUNT_SUCCESSFULLY_DELETED };
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw new NotFoundException(MESSAGES.USER_NOT_FOUND);
+            }
+            throw new Error('An error occurred while deleting the account.');
         }
     }
 }

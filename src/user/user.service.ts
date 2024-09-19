@@ -71,4 +71,11 @@ export class UserService {
             throw new ServiceUnavailableException('Service is currently unavailable. Please try again later.');
         }
     }
+
+    async deleteUserAccount(userEmail: string): Promise<void> {
+        const result = await this.usersRepository.delete({ email: userEmail });
+        if (result.affected === 0) {
+            throw new NotFoundException('User not found.');
+        }
+    }
 }
