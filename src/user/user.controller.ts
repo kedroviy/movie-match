@@ -17,6 +17,7 @@ import {
     ApiBody,
     ApiCreatedResponse,
     ApiNotFoundResponse,
+    ApiOperation,
     ApiParam,
     ApiProperty,
     ApiQuery,
@@ -77,6 +78,7 @@ export class UserController {
     @UseGuards(AuthGuard)
     @ApiBearerAuth()
     @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: METHODES.DELETE_ACCOUNT })
     @ApiProperty({ description: METHODES.DELETE_ACCOUNT })
     @ApiParam({ name: 'email', required: true, description: MESSAGES.USER_EMAIL })
     @ApiResponse({
