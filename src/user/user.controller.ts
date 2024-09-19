@@ -75,6 +75,7 @@ export class UserController {
     }
 
     @Delete(':email')
+    @UseGuards(AuthGuard)
     @HttpCode(HttpStatus.OK)
     @ApiProperty({ description: METHODES.DELETE_ACCOUNT })
     @ApiParam({ name: 'email', required: true, description: MESSAGES.USER_EMAIL })
