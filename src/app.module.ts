@@ -23,39 +23,40 @@ import { VerifyCode } from './auth/auth.model';
 import { MatchMoviesModule } from './match-movies/match-movies.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forRoot({
-            type: 'postgres',
-            host: process.env.POSTGRES_HOST,
-            port: Number(process.env.POSTGRES_PORT),
-            password: process.env.POSTGRES_PASSWORD,
-            username: process.env.POSTGRES_USERNAME,
-            entities: [User, Room, Attempt, Favorite, Match, VerifyCode],
-            database: process.env.POSTGRES_DATABASE,
-            synchronize: true,
-            logging: ['query'],
-        }),
-        SendGridModule.forRoot({
-            apikey: process.env.SENDGRID_API_KEY,
-        }),
-        JwtModule,
-        AuthModule,
-        UserModule,
-        PassportModule,
-        MatchModule,
-        RoomsModule,
-        AttemptModule,
-        MovieModule,
-        FavoriteModule,
-        EmailModule,
-        MatchMoviesModule,
-    ],
-    controllers: [],
-    providers: [
-        {
-            provide: APP_GUARD,
-            useClass: JwtStrategy,
-        },
-    ],
+  imports: [
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.POSTGRES_HOST,
+      port: Number(process.env.POSTGRES_PORT),
+      password: process.env.POSTGRES_PASSWORD,
+      username: process.env.POSTGRES_USERNAME,
+      entities: [User, Room, Attempt, Favorite, Match, VerifyCode],
+      database: process.env.POSTGRES_DATABASE,
+      synchronize: true,
+      ssl: true,
+      logging: ['query'],
+    }),
+    SendGridModule.forRoot({
+      apikey: process.env.SENDGRID_API_KEY,
+    }),
+    JwtModule,
+    AuthModule,
+    UserModule,
+    PassportModule,
+    MatchModule,
+    RoomsModule,
+    AttemptModule,
+    MovieModule,
+    FavoriteModule,
+    EmailModule,
+    MatchMoviesModule,
+  ],
+  controllers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtStrategy,
+    },
+  ],
 })
 export class AppModule {}
