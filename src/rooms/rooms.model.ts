@@ -20,7 +20,7 @@ export enum RoomStatus {
 @Entity()
 @Unique(['key', 'authorId'])
 export class Room {
-    @PrimaryGeneratedColumn('uuid')
+    @PrimaryGeneratedColumn('rowid')
     id: string;
 
     @Column({ nullable: false })
