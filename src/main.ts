@@ -6,10 +6,14 @@ import 'dotenv/config';
 import { ValidationPipe } from '@nestjs/common';
 
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
     const PORT = process.env.PORT || 4000;
+
+    app.useWebSocketAdapter(new IoAdapter(app));
+    app.enableCors({ origin: '*' });
 
     app.useGlobalPipes(new ValidationPipe());
 

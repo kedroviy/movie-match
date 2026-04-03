@@ -12,7 +12,7 @@ import { Socket, Server } from 'socket.io';
 
 import { RoomsService } from '@src/rooms/rooms.service';
 
-@WebSocketGateway({ transports: ['websocket'] })
+@WebSocketGateway()
 export class MatchGateway implements OnGatewayInit, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
 

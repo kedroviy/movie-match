@@ -16,7 +16,6 @@ import { Match } from '@src/match/match.model';
 
 @WebSocketGateway({
     namespace: 'rooms',
-    transports: ['websocket'],
     cors: {
         origin: '*',
     },
