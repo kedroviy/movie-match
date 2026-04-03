@@ -27,9 +27,9 @@ import { MatchMoviesModule } from './match-movies/match-movies.module';
         TypeOrmModule.forRoot({
             type: 'postgres',
             host: process.env.POSTGRES_HOST,
-            port: Number(process.env.POSTGRES_PORT) || 4000,
+            port: Number(process.env.POSTGRES_PORT) || 5432,
             password: process.env.POSTGRES_PASSWORD,
-            username: process.env.POSTGRES_USERNAME,
+            username: process.env.POSTGRES_USER ?? process.env.POSTGRES_USERNAME,
             entities: [User, Room, Attempt, Favorite, Match, VerifyCode],
             database: process.env.POSTGRES_DATABASE,
             synchronize: true,
