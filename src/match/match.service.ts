@@ -8,18 +8,25 @@ import { Room, RoomStatus } from '@src/rooms/rooms.model';
 import { RoomsGateway } from '@src/rooms/rooms.gateway';
 import axios from 'axios';
 import { URLS } from '@src/constants';
+import { parseMoviesColumn } from '@src/rooms/rooms.utils';
+import { MatchPhase } from '@src/rooms/match-phase.enum';
+import { RoomStateMachineService } from '@src/rooms/room-state-machine.service';
 
 @Injectable()
 export class MatchService {
+    private readonly checkStatusChains = new Map<string, Promise<void>>();
+
     constructor(
         @InjectRepository(Match) private matchRepository: Repository<Match>,
         @InjectRepository(Room) private roomRepository: Repository<Room>,
         @Inject(RoomsService) private roomsService: RoomsService,
         private readonly roomsGateway: RoomsGateway,
+        private readonly roomStateMachine: RoomStateMachineService,
     ) {}
 
     baseURL: string = URLS.kp_url;
 
+    /** Idempotent: duplicate like for same movie returns success without error. */
     async likeMovie(likeMovieDto: LikeMovieDto): Promise<string> {
         const { roomKey, userId, movieId } = likeMovieDto;
         const room = await this.roomRepository.findOneBy({ key: roomKey });
@@ -41,7 +48,7 @@ export class MatchService {
                 match.movieId = [];
             }
             if (match.movieId.includes(movieId)) {
-                throw new ConflictException('Movie already liked');
+                return 'Movie liked successfully';
             }
             match.movieId.push(movieId);
         }
@@ -78,7 +85,24 @@ export class MatchService {
         }
     }
 
-    async checkAndBroadcastIfNeeded(roomKey: string, userId: number): Promise<void> {
+    /**
+     * Serialize per-room so two devices finishing the deck at once do not double-fetch
+     * the next Kinopoisk page or double-broadcast.
+     */
+    async checkAndBroadcastIfNeeded(roomKey: string, userId: number, idempotencyKey?: string): Promise<void> {
+        const previous = this.checkStatusChains.get(roomKey) ?? Promise.resolve();
+        const current = previous.then(() => this.runCheckAndBroadcastIfNeeded(roomKey, userId, idempotencyKey));
+        this.checkStatusChains.set(roomKey, current);
+        try {
+            await current;
+        } finally {
+            if (this.checkStatusChains.get(roomKey) === current) {
+                this.checkStatusChains.delete(roomKey);
+            }
+        }
+    }
+
+    private async runCheckAndBroadcastIfNeeded(roomKey: string, userId: number, idempotencyKey?: string): Promise<void> {
         const match = await this.matchRepository.findOne({ where: { roomKey, userId } });
         if (!match) {
             throw new NotFoundException('Match not found');
@@ -89,27 +113,43 @@ export class MatchService {
             throw new NotFoundException('Room not found');
         }
 
+        if (
+            idempotencyKey &&
+            room.deckRoundIdempotencyKey === idempotencyKey &&
+            room.deckRoundIdempotencyAtVersion === room.aggregateVersion
+        ) {
+            return;
+        }
+
+        const versionBefore = room.aggregateVersion ?? 0;
+
         match.userStatus = MatchUserStatus.WAITING;
         await this.matchRepository.save(match);
 
         const matches = await this.matchRepository.find({ where: { roomKey } });
-        const allUsersWaiting = matches.every((match) => match.userStatus === MatchUserStatus.WAITING);
+        const allUsersWaiting = matches.every((m) => m.userStatus === MatchUserStatus.WAITING);
 
         if (allUsersWaiting || matches.length === 1) {
             if (room.status === RoomStatus.SET) {
                 const commonMovieIds = await this.getCommonMovieIds(roomKey);
                 if (commonMovieIds.length >= 8) {
+                    this.roomStateMachine.assertEnterExceptionShortlist(room);
                     const moviesData = await this.fetchMoviesFromIds(this.baseURL, commonMovieIds);
                     room.movies = moviesData;
                     room.status = RoomStatus.EXCEPTION;
+                    room.matchPhase = MatchPhase.SWIPING;
+                    room.aggregateVersion = (room.aggregateVersion ?? 0) + 1;
                     await this.roomRepository.save(room);
 
-                    for (const match of matches) {
-                        match.movieId = [];
-                        await this.matchRepository.save(match);
+                    for (const m of matches) {
+                        m.movieId = [];
+                        await this.matchRepository.save(m);
                     }
 
-                    await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey);
+                    await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey, {
+                        aggregateVersion: room.aggregateVersion,
+                        matchPhase: room.matchPhase,
+                    });
                 } else {
                     let filters;
                     try {
@@ -118,9 +158,9 @@ export class MatchService {
                         throw new ConflictException('Failed to parse filters');
                     }
 
+                    this.roomStateMachine.assertFetchNextDeck(room);
                     await this.roomsService.fetchAndSaveMovies(room, filters);
                     await this.updateAllUsersStatusToActive(roomKey);
-                    await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey);
                 }
             } else if (room.status === RoomStatus.EXCEPTION) {
                 const commonMovieIds = await this.getCommonMovieIds(roomKey);
@@ -129,15 +169,27 @@ export class MatchService {
                     await this.updateRoomMovies(roomKey, commonMovieIds);
                     await this.clearMatchMovieIds(roomKey);
                 } else {
-                    await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey);
+                    await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey, {
+                        aggregateVersion: room.aggregateVersion,
+                        matchPhase: room.matchPhase,
+                    });
                 }
+            }
+        }
+
+        if (idempotencyKey) {
+            const latest = await this.roomRepository.findOneBy({ key: roomKey });
+            if (latest && (latest.aggregateVersion ?? 0) > versionBefore) {
+                latest.deckRoundIdempotencyKey = idempotencyKey;
+                latest.deckRoundIdempotencyAtVersion = latest.aggregateVersion;
+                await this.roomRepository.save(latest);
             }
         }
     }
 
     private async getCommonMovieIds(roomKey: string): Promise<number[]> {
         const matches = await this.matchRepository.find({ where: { roomKey } });
-        const allMovieIds = matches.map((match) => match.movieId.map(Number) || []);
+        const allMovieIds = matches.map((m) => (m.movieId ?? []).map(Number));
 
         if (allMovieIds.length === 0) return [];
 
@@ -155,22 +207,39 @@ export class MatchService {
         }
 
         if (commonMovieIds.length === 1) {
+            this.roomStateMachine.assertEnterFinalPick(room);
             const movie = await this.fetchMovieById(commonMovieIds[0]);
-            room.movies = movie;
+            room.movies = { docs: movie, total: Array.isArray(movie) ? movie.length : 0 };
+            room.matchPhase = MatchPhase.FINAL_PICK;
+            room.aggregateVersion = (room.aggregateVersion ?? 0) + 1;
             await this.roomRepository.save(room);
-            await this.roomsGateway.broadcastMoviesList('Final movie selected', roomKey);
+            await this.roomsGateway.broadcastMoviesList('Final movie selected', roomKey, {
+                aggregateVersion: room.aggregateVersion,
+                matchPhase: room.matchPhase,
+            });
             await this.roomsService.deleteRoom(roomKey);
         } else {
-            const filteredMovies = room.movies.docs.filter((movie: any) => commonMovieIds.includes(movie.id));
+            this.roomStateMachine.assertNarrowExceptionDeck(room);
+            const raw = parseMoviesColumn(room.movies) ?? room.movies;
+            const deck = Array.isArray(raw) ? { docs: raw } : raw;
+            if (!deck?.docs) {
+                throw new ConflictException('Room deck has invalid shape');
+            }
+            const filteredMovies = deck.docs.filter((movie: any) => commonMovieIds.includes(movie.id));
             const updatedMoviesData = {
-                ...room.movies,
+                ...deck,
                 docs: filteredMovies,
                 total: filteredMovies.length,
             };
             room.movies = updatedMoviesData;
+            room.matchPhase = MatchPhase.SWIPING;
+            room.aggregateVersion = (room.aggregateVersion ?? 0) + 1;
 
             await this.roomRepository.save(room);
-            await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey);
+            await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey, {
+                aggregateVersion: room.aggregateVersion,
+                matchPhase: room.matchPhase,
+            });
         }
     }
 

@@ -6,10 +6,11 @@ import { Room } from '@src/rooms/rooms.model';
 import { Match } from '@src/match/match.model';
 import { UserModule } from '@src/user/user.module';
 import { RoomsGateway } from './rooms.gateway';
-import { MatchService } from '@src/match/match.service';
 import { AuthModule } from '@src/auth/auth.module';
 import { MatchMovie } from '@src/match-movies/match-movies.model';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MovieModule } from '@src/movie/movie.module';
+import { RoomStateMachineService } from './room-state-machine.service';
 
 @Module({
     imports: [
@@ -17,9 +18,10 @@ import { ScheduleModule } from '@nestjs/schedule';
         UserModule,
         forwardRef(() => AuthModule),
         ScheduleModule.forRoot(),
+        MovieModule,
     ],
-    providers: [RoomsService, RoomsGateway, MatchService],
+    providers: [RoomsService, RoomsGateway, RoomStateMachineService],
     controllers: [RoomsController],
-    exports: [RoomsService, RoomsGateway],
+    exports: [RoomsService, RoomsGateway, RoomStateMachineService],
 })
 export class RoomsModule {}

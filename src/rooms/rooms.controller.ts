@@ -33,6 +33,7 @@ import { Match } from '@src/match/match.model';
 import { MESSAGES } from '@src/constants';
 import { HasRoomResponse } from './dto/has-room-response.dto';
 import { MoviesResponse } from './dto/movies-response.dto';
+import { RoomStateDto } from './dto/room-state.dto';
 import { CreateRoomDto, CreateRoomKeyResponse } from './dto/create-room.dto';
 import { GetUser as GetUserDecorator } from './decorators/get-user.decorators';
 
@@ -194,6 +195,28 @@ export class RoomsController {
         }
     }
 
+    @Get(':roomKey/state')
+    @UseGuards(AuthGuard)
+    @ApiOperation({ summary: 'Room aggregate: phase, version, participants, deck summary' })
+    @ApiParam({ name: 'roomKey', type: String })
+    @ApiOkResponse({ type: RoomStateDto })
+    async getRoomState(@Param('roomKey') roomKey: string): Promise<RoomStateDto> {
+        try {
+            return await this.roomsService.getRoomAggregateState(roomKey);
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw new HttpException(
+                    { statusCode: HttpStatus.NOT_FOUND, message: error.message },
+                    HttpStatus.NOT_FOUND,
+                );
+            }
+            throw new HttpException(
+                { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Internal Server Error' },
+                HttpStatus.INTERNAL_SERVER_ERROR,
+            );
+        }
+    }
+
     @Get('/:roomKey/get-movies')
     @UseGuards(AuthGuard)
     @ApiOperation({ summary: 'Get current movies data' })
@@ -207,7 +230,7 @@ export class RoomsController {
     @ApiResponse({ status: 404, description: 'Room or user not found' })
     @ApiResponse({ status: 409, description: 'Conflict' })
     @ApiResponse({ status: 500, description: 'Internal Server Error' })
-    async getNextMovie(@Param('roomKey') roomKey: string): Promise<string> {
+    async getNextMovie(@Param('roomKey') roomKey: string): Promise<Record<string, unknown>> {
         try {
             return this.roomsService.getNextMovie(roomKey);
         } catch (error) {

@@ -32,3 +32,18 @@ export const constructUrl = (baseURL: string, formData: ISMFormData, page: numbe
 
     return `${baseURL}limit=10&notNullFields=name&notNullFields=countries.name&${params.toString()}`;
 };
+
+/** Normalize DB `movies` column (legacy string JSON or jsonb object). */
+export function parseMoviesColumn(raw: unknown): any {
+    if (raw == null) {
+        return null;
+    }
+    if (typeof raw === 'string') {
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return null;
+        }
+    }
+    return raw;
+}

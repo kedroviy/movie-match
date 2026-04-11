@@ -19,6 +19,7 @@ import { MatchService } from './match.service';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { updateUserStatusExamples } from './match-swagger-examples';
 import { MatchResponse } from './match.interfaces';
+import { CheckStatusDto } from './dto/check-status.dto';
 
 @ApiTags('Match')
 @Controller('match')
@@ -138,14 +139,21 @@ export class MatchController {
         example: '1234',
     })
     @ApiBody({
-        description: 'User ID for whom the status is being checked',
+        description: 'User ID and optional idempotency key (same key + settled round → no-op)',
         schema: {
             type: 'object',
+            required: ['userId'],
             properties: {
                 userId: {
                     type: 'number',
                     description: 'The ID of the user',
                     example: 5678,
+                },
+                idempotencyKey: {
+                    type: 'string',
+                    maxLength: 128,
+                    description: 'Client-generated key for this deck-round check',
+                    example: 'uuid-or-ulid',
                 },
             },
         },
@@ -165,8 +173,8 @@ export class MatchController {
             },
         },
     })
-    async checkStatus(@Param('roomKey') roomKey: string, @Body('userId') userId: number): Promise<void> {
-        await this.matchService.checkAndBroadcastIfNeeded(roomKey, userId);
+    async checkStatus(@Param('roomKey') roomKey: string, @Body() dto: CheckStatusDto): Promise<void> {
+        await this.matchService.checkAndBroadcastIfNeeded(roomKey, dto.userId, dto.idempotencyKey);
     }
 
     @Get('specific-key-info/:roomKey')

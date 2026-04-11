@@ -21,6 +21,7 @@ import { EmailModule } from './email/email.module';
 import { SendGridModule } from '@anchan828/nest-sendgrid';
 import { VerifyCode } from './auth/auth.model';
 import { MatchMoviesModule } from './match-movies/match-movies.module';
+import { ExternalMovieCache } from './movie/external-movie-cache.entity';
 
 @Module({
     imports: [
@@ -30,7 +31,7 @@ import { MatchMoviesModule } from './match-movies/match-movies.module';
             port: Number(process.env.POSTGRES_PORT) || 5432,
             password: process.env.POSTGRES_PASSWORD,
             username: process.env.POSTGRES_USER ?? process.env.POSTGRES_USERNAME,
-            entities: [User, Room, Attempt, Favorite, Match, VerifyCode],
+            entities: [User, Room, Attempt, Favorite, Match, VerifyCode, ExternalMovieCache],
             database: process.env.POSTGRES_DATABASE,
             synchronize: true,
             ssl: {

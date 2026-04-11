@@ -12,12 +12,16 @@ import { Room, RoomStatus } from '@src/rooms/rooms.model';
 import { Match, MatchUserStatus } from '@src/match/match.model';
 import { UserService } from '@src/user/user.service';
 import { RoomsGateway } from './rooms.gateway';
-import { constructUrl } from './rooms.utils';
+import { constructUrl, parseMoviesColumn } from './rooms.utils';
 import { RoomState } from './rooms.interface';
 import axios from 'axios';
 import 'dotenv/config';
 import { URLS } from '@src/constants';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { ExternalMovieCacheService, SafeMovieFilters } from '@src/movie/external-movie-cache.service';
+import { MatchPhase } from './match-phase.enum';
+import { RoomStateMachineService } from './room-state-machine.service';
+import { RoomStateDto } from './dto/room-state.dto';
 
 @Injectable()
 export class RoomsService {
@@ -27,6 +31,8 @@ export class RoomsService {
         private readonly userService: UserService,
         @Inject(forwardRef(() => RoomsGateway))
         private readonly roomsGateway: RoomsGateway,
+        private readonly externalMovieCacheService: ExternalMovieCacheService,
+        private readonly roomStateMachine: RoomStateMachineService,
     ) {}
 
     private roomStates = new Map<string, RoomState>();
@@ -45,6 +51,8 @@ export class RoomsService {
             name,
             status: RoomStatus.PENDING,
             filters,
+            matchPhase: MatchPhase.LOBBY,
+            aggregateVersion: 0,
         });
 
         await this.roomRepository.save(newRoom);
@@ -86,6 +94,7 @@ export class RoomsService {
         }
 
         console.log(`Deleted ${roomsToDelete.length} rooms older than 24 hours`);
+        await this.externalMovieCacheService.purgeExpired();
     }
 
     async joinRoom(userId: number, key: string): Promise<any> {
@@ -121,7 +130,7 @@ export class RoomsService {
         }
 
         const matchesInRoom = await this.getMatchesInRoom(key);
-        this.roomsGateway.broadcastMatchDataUpdate('Match Room Updated', key);
+        this.roomsGateway.broadcastMatchDataUpdate('Match Room Updated');
 
         return matchesInRoom;
     }
@@ -174,6 +183,11 @@ export class RoomsService {
             throw new NotFoundException('Room not found');
         }
 
+        this.roomStateMachine.assertStartMatch(room);
+        if (!(room.matchPhase === MatchPhase.LOBBY && room.status === RoomStatus.PENDING)) {
+            return { status: 'already_started' };
+        }
+
         let filters;
         try {
             filters = JSON.parse(room.filters);
@@ -181,37 +195,30 @@ export class RoomsService {
             throw new ConflictException('Failed to parse filters');
         }
 
-        const safeFilters = {
-            excludeGenre: filters?.excludeGenre ?? [],
-            genres: filters?.genres ?? [],
-            selectedYears: filters?.selectedYears ?? [],
-            selectedGenres: filters?.selectedGenres ?? [],
-            selectedCountries: filters?.selectedCountries ?? [],
-            selectedRating: filters?.selectedRating ?? [],
-        };
+        const safeFilters = this.toSafeFilters(filters);
 
         const baseURL: string = URLS.kp_url;
         const currentPage: number = room.currentPage;
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
         }
-        const url = constructUrl(baseURL, safeFilters, currentPage);
+        const url = constructUrl(baseURL, safeFilters as any, currentPage);
 
-        const config = {
-            headers: {
-                'X-API-KEY': URLS.kp_key,
-            },
-        };
+        const headers = { 'X-API-KEY': URLS.kp_key };
 
         try {
-            const response = await axios.get(url, config);
-            const data = response.data;
+            const data = await this.externalMovieCacheService.getOrFetch(url, safeFilters, currentPage, headers);
 
-            room.movies = JSON.stringify(data);
+            room.movies = data;
             room.currentPage = currentPage + 1;
             room.status = RoomStatus.SET;
+            room.matchPhase = MatchPhase.SWIPING;
+            room.aggregateVersion = (room.aggregateVersion ?? 0) + 1;
             await this.roomRepository.save(room);
-            await this.roomsGateway.broadcastMoviesList('Movies data updated', key);
+            await this.roomsGateway.broadcastMoviesList('Movies data updated', key, {
+                aggregateVersion: room.aggregateVersion,
+                matchPhase: room.matchPhase,
+            });
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');
@@ -221,60 +228,59 @@ export class RoomsService {
     }
 
     async fetchAndSaveMovies(room: Room, filters: any): Promise<any> {
-        const safeFilters = {
-            excludeGenre: filters?.excludeGenre ?? [],
-            genres: filters?.genres ?? [],
-            selectedYears: filters?.selectedYears ?? [],
-            selectedGenres: filters?.selectedGenres ?? [],
-            selectedCountries: filters?.selectedCountries ?? [],
-            selectedRating: filters?.selectedRating ?? [],
-        };
+        this.roomStateMachine.assertFetchNextDeck(room);
+
+        const safeFilters = this.toSafeFilters(filters);
 
         const baseURL: string = URLS.kp_url;
         const currentPage: number = room.currentPage;
         if (!baseURL) {
             throw new InternalServerErrorException('Base URL for Kinopoisk API is not defined');
         }
-        const url = constructUrl(baseURL, safeFilters, currentPage);
+        const url = constructUrl(baseURL, safeFilters as any, currentPage);
 
-        const config = {
-            headers: {
-                'X-API-KEY': URLS.kp_key,
-            },
-        };
+        const headers = { 'X-API-KEY': URLS.kp_key };
         try {
-            const response = await axios.get(url, config);
-            const data = response.data;
+            const data = await this.externalMovieCacheService.getOrFetch(url, safeFilters, currentPage, headers);
 
-            room.movies = JSON.stringify(data);
+            room.movies = data;
             room.currentPage = currentPage + 1;
+            room.matchPhase = MatchPhase.SWIPING;
+            room.aggregateVersion = (room.aggregateVersion ?? 0) + 1;
 
             await this.roomRepository.save(room);
 
-            await this.roomsGateway.broadcastMoviesList('Movies data updated', room.key);
+            await this.roomsGateway.broadcastMoviesList('Movies data updated', room.key, {
+                aggregateVersion: room.aggregateVersion,
+                matchPhase: room.matchPhase,
+            });
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');
         }
     }
 
-    async getNextMovie(roomKey: string): Promise<string> {
+    async getNextMovie(roomKey: string): Promise<Record<string, unknown>> {
         const room = await this.roomRepository.findOne({ where: { key: roomKey } });
         if (!room) {
             throw new NotFoundException('Room not found');
         }
 
-        const matchMovies = room.movies;
-        if (!matchMovies || matchMovies.length === 0) {
+        const rawDeck = parseMoviesColumn(room.movies) ?? room.movies;
+        const deck = Array.isArray(rawDeck) ? { docs: rawDeck } : rawDeck;
+        const docs = deck?.docs as unknown[] | undefined;
+        if (!docs?.length) {
             throw new NotFoundException('No movies found for this user in the specified room');
         }
 
-        try {
-            return await matchMovies;
-        } catch (error) {
-            console.error('Error in getNextMovie:', error);
-            throw new InternalServerErrorException('Error fetching movies');
-        }
+        return {
+            ...deck,
+            _room: {
+                roomKey: room.key,
+                aggregateVersion: room.aggregateVersion ?? 0,
+                matchPhase: room.matchPhase,
+            },
+        };
     }
 
     private sendNextMovieToRoom(key: string): void {
@@ -290,7 +296,15 @@ export class RoomsService {
         }
 
         console.log('sendNextMovieToRoom: ', currentMovie);
-        this.roomsGateway.broadcastMoviesList('Movies data updated', key);
+        void this.emitBroadcastForRoom(key);
+    }
+
+    private async emitBroadcastForRoom(key: string): Promise<void> {
+        const room = await this.roomRepository.findOneBy({ key });
+        this.roomsGateway.broadcastMoviesList('Movies data updated', key, {
+            aggregateVersion: room?.aggregateVersion ?? 0,
+            matchPhase: room?.matchPhase,
+        });
     }
 
     private async fetchNextPage(key: string): Promise<void> {
@@ -403,6 +417,71 @@ export class RoomsService {
 
     async getRoomByKey(key: string): Promise<Room> {
         return this.roomRepository.findOne({ where: { key }, relations: ['users', 'matches'] });
+    }
+
+    async getRoomAggregateState(key: string): Promise<RoomStateDto> {
+        const room = await this.roomRepository.findOne({
+            where: { key },
+            relations: ['matches'],
+        });
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        const matches = room.matches?.length ? room.matches : await this.getMatchesInRoom(key);
+        const rawDeck = parseMoviesColumn(room.movies) ?? room.movies;
+        const deck = Array.isArray(rawDeck) ? { docs: rawDeck } : rawDeck;
+        const docs = (deck as any)?.docs as unknown[] | undefined;
+        const docCount = Array.isArray(docs) ? docs.length : 0;
+        let firstMovieId: number | undefined;
+        let lastMovieId: number | undefined;
+        if (docCount > 0) {
+            firstMovieId = (docs![0] as any)?.id;
+            lastMovieId = (docs![docCount - 1] as any)?.id;
+        }
+
+        const participants = (matches ?? []).map((m) => ({
+            userId: m.userId,
+            userName: m.userName,
+            role: m.role,
+            userStatus: m.userStatus,
+            likedCount: m.movieId?.length ?? 0,
+        }));
+
+        let hasFilters = false;
+        try {
+            hasFilters = Boolean(room.filters && JSON.parse(room.filters));
+        } catch {
+            hasFilters = Boolean(room.filters);
+        }
+
+        return {
+            roomKey: room.key,
+            roomId: room.id,
+            matchPhase: room.matchPhase,
+            roomStatus: room.status,
+            aggregateVersion: room.aggregateVersion ?? 0,
+            participants,
+            deck: {
+                docCount,
+                firstMovieId,
+                lastMovieId,
+                hasDeck: docCount > 0,
+            },
+            hasFilters,
+            serverTime: new Date().toISOString(),
+        };
+    }
+
+    private toSafeFilters(filters: any): SafeMovieFilters {
+        return {
+            excludeGenre: filters?.excludeGenre ?? [],
+            genres: filters?.genres ?? [],
+            selectedYears: filters?.selectedYears ?? [],
+            selectedGenres: filters?.selectedGenres ?? [],
+            selectedCountries: filters?.selectedCountries ?? [],
+            selectedRating: filters?.selectedRating ?? [],
+        };
     }
 
     private generateKey(): string {
