@@ -131,7 +131,7 @@ export class RoomsService {
         }
 
         const matchesInRoom = await this.getMatchesInRoom(key);
-        this.roomsGateway.broadcastMatchDataUpdate('Match Room Updated');
+        this.roomsGateway.broadcastMatchDataUpdate('Match Room Updated', key);
 
         return matchesInRoom;
     }

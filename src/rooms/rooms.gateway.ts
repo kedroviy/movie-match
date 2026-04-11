@@ -23,6 +23,11 @@ import { Match } from '@src/match/match.model';
 export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
 
+    /** Socket.IO room id for match-scoped events (must match client `joinRoom`). */
+    static matchSocketRoom(roomKey: string): string {
+        return `match:${roomKey}`;
+    }
+
     onModuleInit() {
         this.server.on('connection', (socket) => {
             console.log(`Client connected: ${socket.id}`);
@@ -37,6 +42,23 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         private roomsService: RoomsService,
     ) {}
 
+    /**
+     * Client must join this room to receive `broadcastMovies`, `broadcastMatchDataUpdated`,
+     * `matchUpdated`, and `filtersUpdated` for that lobby (namespace `/rooms`).
+     * Body matches mobile: `{ roomKey, userId }` or legacy `{ key, userId }`.
+     */
+    @SubscribeMessage('joinRoom')
+    handleClientJoinMatchRoom(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() body: { roomKey?: string; key?: string; userId?: string | number },
+    ): void {
+        const roomKey = typeof body?.roomKey === 'string' ? body.roomKey : typeof body?.key === 'string' ? body.key : '';
+        if (!roomKey) {
+            return;
+        }
+        void client.join(RoomsGateway.matchSocketRoom(roomKey));
+    }
+
     @SubscribeMessage('logMessage')
     handleLogMessage(@MessageBody() data: any) {
         console.log('Received data:', data);
@@ -48,19 +70,32 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     }
 
     @SubscribeMessage('requestMatchData')
-    async handleRequestMatchData(@MessageBody() data) {
-        const matches = await this.roomsService.getMatchesInRoom(data.roomKey);
+    async handleRequestMatchData(@MessageBody() data: { roomKey?: string }) {
+        const roomKey = data?.roomKey;
+        if (!roomKey) {
+            return;
+        }
+        const matches = await this.roomsService.getMatchesInRoom(roomKey);
         console.log('requestMatchData: ', { matches });
-        this.server.emit('matchUpdated', matches);
+        this.server.to(RoomsGateway.matchSocketRoom(roomKey)).emit('matchUpdated', matches);
     }
 
     @SubscribeMessage('startMatch')
-    async handleStartMatch(@MessageBody() data: { roomKey: string }) {
+    async handleStartMatch(@MessageBody() data: { roomKey?: string }) {
+        const roomKey = data?.roomKey;
         try {
-            const result = await this.roomsService.startMatch(data.roomKey);
-            this.server.emit('startMatchResponse', result);
+            if (!roomKey) {
+                return;
+            }
+            const result = await this.roomsService.startMatch(roomKey);
+            this.server.to(RoomsGateway.matchSocketRoom(roomKey)).emit('startMatchResponse', result);
         } catch (error: any) {
-            this.server.emit('startMatchResponse', { status: 'error', message: error.message });
+            if (roomKey) {
+                this.server.to(RoomsGateway.matchSocketRoom(roomKey)).emit('startMatchResponse', {
+                    status: 'error',
+                    message: error.message,
+                });
+            }
         }
     }
 
@@ -92,23 +127,28 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         };
         console.log('broadcast movie list', message);
 
-        this.server.emit('broadcastMovies', message);
+        this.server.to(RoomsGateway.matchSocketRoom(roomKey)).emit('broadcastMovies', message);
     }
 
     emitFiltersUpdated(roomKey: string, filters: any): void {
-        this.server.to(roomKey).emit('filtersUpdated', { roomKey, filters });
+        this.server.to(RoomsGateway.matchSocketRoom(roomKey)).emit('filtersUpdated', { roomKey, filters });
     }
 
-    broadcastMatchDataUpdate(messageForClient: string) {
+    broadcastMatchDataUpdate(messageForClient: string, roomKey: string) {
         const message = {
             type: 'broadcastMatchDataUpdated',
             messageForClient,
+            roomKey,
         };
-        this.server.emit('broadcastMatchDataUpdated', message);
+        this.server.to(RoomsGateway.matchSocketRoom(roomKey)).emit('broadcastMatchDataUpdated', message);
     }
 
     notifyRoomJoined(room: Match) {
-        this.server.emit('matchUpdated', {
+        const rk = room.roomKey;
+        if (!rk) {
+            return;
+        }
+        this.server.to(RoomsGateway.matchSocketRoom(rk)).emit('matchUpdated', {
             message: `${room.userName} has joined the room`,
             roomDetails: { id: room.roomId, name: room.userName },
             newUser: { ...room },
@@ -149,8 +189,9 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
             await this.roomsService.leaveFromRoom(roomKey, userId);
             const users = await this.roomsService.getMatchesInRoom(roomKey); // Fetch all users
 
-            client.leave(roomKey);
-            this.server.to(roomKey).emit('roomUpdate', {
+            const channel = RoomsGateway.matchSocketRoom(roomKey);
+            client.leave(channel);
+            this.server.to(channel).emit('roomUpdate', {
                 message: `${userId} has left the room`,
                 users,
             });

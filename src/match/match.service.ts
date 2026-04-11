@@ -189,12 +189,18 @@ export class MatchService {
 
     private async getCommonMovieIds(roomKey: string): Promise<number[]> {
         const matches = await this.matchRepository.find({ where: { roomKey } });
-        const allMovieIds = matches.map((m) => (m.movieId ?? []).map(Number));
+        const allMovieIds = matches.map((m) =>
+            (m.movieId ?? [])
+                .map((raw) => Number(raw))
+                .filter((n) => !Number.isNaN(n)),
+        );
 
         if (allMovieIds.length === 0) return [];
 
         const [first, ...rest] = allMovieIds;
-        const commonIds = first.filter((id) => rest.every((array) => array.includes(id)));
+        const commonIds = first.filter((id) =>
+            rest.every((arr) => arr.some((x) => Number(x) === Number(id))),
+        );
 
         return commonIds;
     }
@@ -208,7 +214,7 @@ export class MatchService {
 
         if (commonMovieIds.length === 1) {
             this.roomStateMachine.assertEnterFinalPick(room);
-            const movie = await this.fetchMovieById(commonMovieIds[0]);
+            const movie = await this.fetchMovieById(Number(commonMovieIds[0]));
             room.movies = { docs: movie, total: Array.isArray(movie) ? movie.length : 0 };
             room.matchPhase = MatchPhase.FINAL_PICK;
             room.aggregateVersion = (room.aggregateVersion ?? 0) + 1;
@@ -225,7 +231,10 @@ export class MatchService {
             if (!deck?.docs) {
                 throw new ConflictException('Room deck has invalid shape');
             }
-            const filteredMovies = deck.docs.filter((movie: any) => commonMovieIds.includes(movie.id));
+            const commonNumeric = commonMovieIds.map((id) => Number(id));
+            const filteredMovies = deck.docs.filter((movie: any) =>
+                commonNumeric.includes(Number(movie.id)),
+            );
             const updatedMoviesData = {
                 ...deck,
                 docs: filteredMovies,
