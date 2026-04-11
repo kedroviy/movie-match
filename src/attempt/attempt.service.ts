@@ -13,10 +13,7 @@ export class AttemptService {
         const attempt = await this.checkAttempts(input);
 
         if (attempt && attempt.count >= 3 && attempt.exp > new Date()) {
-            const retryAfterSeconds = Math.max(
-                1,
-                Math.floor((attempt.exp.getTime() - new Date().getTime()) / 1000),
-            );
+            const retryAfterSeconds = Math.max(1, Math.floor((attempt.exp.getTime() - new Date().getTime()) / 1000));
             throw new ForbiddenException({
                 code: AuthErrorCode.LOGIN_RATE_LIMITED,
                 retryAfterSeconds,

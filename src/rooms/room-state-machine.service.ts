@@ -22,19 +22,18 @@ export class RoomStateMachineService {
         if (room.matchPhase === MatchPhase.SWIPING && room.status === RoomStatus.SET && this.hasDeckDocs(room)) {
             return;
         }
-        throw new ConflictException(
-            `Cannot start match from phase=${room.matchPhase} status=${room.status}`,
-        );
+        throw new ConflictException(`Cannot start match from phase=${room.matchPhase} status=${room.status}`);
     }
 
     /** Kinopoisk next page / new deck while swiping. */
     assertFetchNextDeck(room: Room): void {
-        if (room.matchPhase === MatchPhase.SWIPING && (room.status === RoomStatus.SET || room.status === RoomStatus.EXCEPTION)) {
+        if (
+            room.matchPhase === MatchPhase.SWIPING &&
+            (room.status === RoomStatus.SET || room.status === RoomStatus.EXCEPTION)
+        ) {
             return;
         }
-        throw new ConflictException(
-            `Cannot fetch next deck from phase=${room.matchPhase} status=${room.status}`,
-        );
+        throw new ConflictException(`Cannot fetch next deck from phase=${room.matchPhase} status=${room.status}`);
     }
 
     /** 8+ common likes → narrow shortlist (EXCEPTION). */
@@ -52,19 +51,18 @@ export class RoomStateMachineService {
         if (room.matchPhase === MatchPhase.SWIPING && room.status === RoomStatus.EXCEPTION) {
             return;
         }
-        throw new ConflictException(
-            `Cannot narrow exception deck from phase=${room.matchPhase} status=${room.status}`,
-        );
+        throw new ConflictException(`Cannot narrow exception deck from phase=${room.matchPhase} status=${room.status}`);
     }
 
     /** Single common movie → final UI. */
     assertEnterFinalPick(room: Room): void {
-        if (room.matchPhase === MatchPhase.SWIPING && (room.status === RoomStatus.SET || room.status === RoomStatus.EXCEPTION)) {
+        if (
+            room.matchPhase === MatchPhase.SWIPING &&
+            (room.status === RoomStatus.SET || room.status === RoomStatus.EXCEPTION)
+        ) {
             return;
         }
-        throw new ConflictException(
-            `Cannot enter final pick from phase=${room.matchPhase} status=${room.status}`,
-        );
+        throw new ConflictException(`Cannot enter final pick from phase=${room.matchPhase} status=${room.status}`);
     }
 
     /** Public for idempotent `startMatch` checks. */

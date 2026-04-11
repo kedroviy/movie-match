@@ -1,7 +1,7 @@
-import { AttemptType } from "@src/attempt/attempt.model";
+import { AttemptType } from '@src/attempt/attempt.model';
 
 export interface AttemptTypes {
-    userId: string,
-    where: AttemptType,
-    userAgent: string,
+    userId: string;
+    where: AttemptType;
+    userAgent: string;
 }

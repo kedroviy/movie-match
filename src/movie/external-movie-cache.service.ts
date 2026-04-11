@@ -27,7 +27,12 @@ export class ExternalMovieCacheService {
     }
 
     /** Returns cached JSON or fetches, stores, and returns Kinopoisk payload. */
-    async getOrFetch(url: string, safeFilters: SafeMovieFilters, page: number, headers: Record<string, string>): Promise<any> {
+    async getOrFetch(
+        url: string,
+        safeFilters: SafeMovieFilters,
+        page: number,
+        headers: Record<string, string>,
+    ): Promise<any> {
         const cacheKey = ExternalMovieCacheService.buildCacheKey(safeFilters, page);
         const hit = await this.cacheRepository.findOne({ where: { cacheKey } });
         if (hit?.payload) {

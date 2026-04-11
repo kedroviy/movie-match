@@ -102,7 +102,11 @@ export class MatchService {
         }
     }
 
-    private async runCheckAndBroadcastIfNeeded(roomKey: string, userId: number, idempotencyKey?: string): Promise<void> {
+    private async runCheckAndBroadcastIfNeeded(
+        roomKey: string,
+        userId: number,
+        idempotencyKey?: string,
+    ): Promise<void> {
         const match = await this.matchRepository.findOne({ where: { roomKey, userId } });
         if (!match) {
             throw new NotFoundException('Match not found');
@@ -190,17 +194,13 @@ export class MatchService {
     private async getCommonMovieIds(roomKey: string): Promise<number[]> {
         const matches = await this.matchRepository.find({ where: { roomKey } });
         const allMovieIds = matches.map((m) =>
-            (m.movieId ?? [])
-                .map((raw) => Number(raw))
-                .filter((n) => !Number.isNaN(n)),
+            (m.movieId ?? []).map((raw) => Number(raw)).filter((n) => !Number.isNaN(n)),
         );
 
         if (allMovieIds.length === 0) return [];
 
         const [first, ...rest] = allMovieIds;
-        const commonIds = first.filter((id) =>
-            rest.every((arr) => arr.some((x) => Number(x) === Number(id))),
-        );
+        const commonIds = first.filter((id) => rest.every((arr) => arr.some((x) => Number(x) === Number(id))));
 
         return commonIds;
     }
@@ -232,9 +232,7 @@ export class MatchService {
                 throw new ConflictException('Room deck has invalid shape');
             }
             const commonNumeric = commonMovieIds.map((id) => Number(id));
-            const filteredMovies = deck.docs.filter((movie: any) =>
-                commonNumeric.includes(Number(movie.id)),
-            );
+            const filteredMovies = deck.docs.filter((movie: any) => commonNumeric.includes(Number(movie.id)));
             const updatedMoviesData = {
                 ...deck,
                 docs: filteredMovies,

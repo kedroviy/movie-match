@@ -52,7 +52,8 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         @ConnectedSocket() client: Socket,
         @MessageBody() body: { roomKey?: string; key?: string; userId?: string | number },
     ): void {
-        const roomKey = typeof body?.roomKey === 'string' ? body.roomKey : typeof body?.key === 'string' ? body.key : '';
+        const roomKey =
+            typeof body?.roomKey === 'string' ? body.roomKey : typeof body?.key === 'string' ? body.key : '';
         if (!roomKey) {
             return;
         }
@@ -199,5 +200,4 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
             client.emit('error', this.formatError(error));
         }
     }
-
 }
