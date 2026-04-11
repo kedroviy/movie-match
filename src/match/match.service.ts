@@ -109,7 +109,7 @@ export class MatchService {
                         await this.matchRepository.save(match);
                     }
 
-                    await this.roomsGateway.broadcastMoviesList('Movies data updated');
+                    await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey);
                 } else {
                     let filters;
                     try {
@@ -120,7 +120,7 @@ export class MatchService {
 
                     await this.roomsService.fetchAndSaveMovies(room, filters);
                     await this.updateAllUsersStatusToActive(roomKey);
-                    await this.roomsGateway.broadcastMoviesList('Movies data updated');
+                    await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey);
                 }
             } else if (room.status === RoomStatus.EXCEPTION) {
                 const commonMovieIds = await this.getCommonMovieIds(roomKey);
@@ -129,7 +129,7 @@ export class MatchService {
                     await this.updateRoomMovies(roomKey, commonMovieIds);
                     await this.clearMatchMovieIds(roomKey);
                 } else {
-                    await this.roomsGateway.broadcastMoviesList('Movies data updated');
+                    await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey);
                 }
             }
         }
@@ -158,7 +158,8 @@ export class MatchService {
             const movie = await this.fetchMovieById(commonMovieIds[0]);
             room.movies = movie;
             await this.roomRepository.save(room);
-            await this.roomsGateway.broadcastMoviesList('Final movie selected');
+            await this.roomsGateway.broadcastMoviesList('Final movie selected', roomKey);
+            await this.roomsService.deleteRoom(roomKey);
         } else {
             const filteredMovies = room.movies.docs.filter((movie: any) => commonMovieIds.includes(movie.id));
             const updatedMoviesData = {
@@ -169,7 +170,7 @@ export class MatchService {
             room.movies = updatedMoviesData;
 
             await this.roomRepository.save(room);
-            await this.roomsGateway.broadcastMoviesList('Movies data updated');
+            await this.roomsGateway.broadcastMoviesList('Movies data updated', roomKey);
         }
     }
 

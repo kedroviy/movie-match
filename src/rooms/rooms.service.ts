@@ -68,9 +68,10 @@ export class RoomsService {
         return { ...roomUser };
     }
 
-    @Cron(CronExpression.EVERY_30_MINUTES)
+    /** Runs once per day; removes inactive rooms older than 24 hours. */
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async cleanupOldRooms(): Promise<void> {
-        const cutoffTime = new Date(Date.now() - 45 * 60 * 1000);
+        const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
         const roomsToDelete = await this.roomRepository.find({
             where: {
@@ -84,7 +85,7 @@ export class RoomsService {
             await this.roomRepository.remove(room);
         }
 
-        console.log(`Deleted ${roomsToDelete.length} rooms older than 45 minutes`);
+        console.log(`Deleted ${roomsToDelete.length} rooms older than 24 hours`);
     }
 
     async joinRoom(userId: number, key: string): Promise<any> {
@@ -120,7 +121,7 @@ export class RoomsService {
         }
 
         const matchesInRoom = await this.getMatchesInRoom(key);
-        this.roomsGateway.broadcastMatchDataUpdate('Match Room Updated');
+        this.roomsGateway.broadcastMatchDataUpdate('Match Room Updated', key);
 
         return matchesInRoom;
     }
@@ -146,7 +147,7 @@ export class RoomsService {
 
         await this.roomRepository.save(room);
         console.log('Filters saved:', room.filters);
-        await this.roomsGateway.broadcastFilters(roomKey, filters);
+        await this.roomsGateway.emitFiltersUpdated(roomKey, filters);
 
         return { message: 'Filters successfully updated.' };
     }
@@ -210,7 +211,7 @@ export class RoomsService {
             room.currentPage = currentPage + 1;
             room.status = RoomStatus.SET;
             await this.roomRepository.save(room);
-            await this.roomsGateway.broadcastMoviesList('Movies data updated');
+            await this.roomsGateway.broadcastMoviesList('Movies data updated', key);
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');
@@ -250,7 +251,7 @@ export class RoomsService {
 
             await this.roomRepository.save(room);
 
-            await this.roomsGateway.broadcastMoviesList('Movies data updated');
+            await this.roomsGateway.broadcastMoviesList('Movies data updated', room.key);
         } catch (error) {
             console.log(error);
             throw new Error('Failed to fetch data from external API');
@@ -289,7 +290,7 @@ export class RoomsService {
         }
 
         console.log('sendNextMovieToRoom: ', currentMovie);
-        this.roomsGateway.broadcastMoviesList(currentMovie);
+        this.roomsGateway.broadcastMoviesList('Movies data updated', key);
     }
 
     private async fetchNextPage(key: string): Promise<void> {
@@ -368,11 +369,14 @@ export class RoomsService {
     }
 
     async deleteRoom(key: string): Promise<void> {
-        const room = await this.roomRepository.findOne({ where: { key } });
+        const room = await this.roomRepository.findOne({ where: { key }, relations: ['matches'] });
         if (!room) {
             throw new NotFoundException('Room not found');
         }
 
+        if (room.matches?.length) {
+            await this.matchRepository.remove(room.matches);
+        }
         await this.roomRepository.remove(room);
     }
 

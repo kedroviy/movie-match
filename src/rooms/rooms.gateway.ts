@@ -38,68 +38,110 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     ) {}
 
     @SubscribeMessage('logMessage')
-    handleLogMessage(@MessageBody() data: any) {
+    handleLogMessage(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
         console.log('Received data:', data);
 
         const message = data?.message ?? 'No message provided';
         console.log(`Received message: ${message}`);
 
-        this.server.emit('broadcastMovies', data);
+        if (data?.roomKey && typeof data.roomKey === 'string') {
+            this.server.to(data.roomKey).emit('broadcastMovies', data);
+        } else {
+            client.emit('broadcastMovies', data);
+        }
     }
 
     @SubscribeMessage('requestMatchData')
-    async handleRequestMatchData(@MessageBody() data) {
-        const matches = await this.roomsService.getMatchesInRoom(data.roomKey);
+    async handleRequestMatchData(@MessageBody() data: { roomKey?: string }, @ConnectedSocket() client: Socket) {
+        const roomKey = data?.roomKey;
+        if (!roomKey) {
+            return;
+        }
+        await client.join(roomKey);
+        const matches = await this.roomsService.getMatchesInRoom(roomKey);
         console.log('requestMatchData: ', { matches });
-        this.server.emit('matchUpdated', matches);
+        this.server.to(roomKey).emit('matchUpdated', matches);
     }
 
     @SubscribeMessage('startMatch')
-    async handleStartMatch(@MessageBody() data: { roomKey: string }) {
+    async handleStartMatch(@MessageBody() data: { roomKey: string }, @ConnectedSocket() client: Socket) {
+        const roomKey = data?.roomKey;
+        if (!roomKey) {
+            client.emit('startMatchResponse', { status: 'error', message: 'roomKey is required' });
+            return;
+        }
+        await client.join(roomKey);
         try {
-            const result = await this.roomsService.startMatch(data.roomKey);
-            this.server.emit('startMatchResponse', result);
+            const result = await this.roomsService.startMatch(roomKey);
+            this.server.to(roomKey).emit('startMatchResponse', result);
         } catch (error: any) {
-            this.server.emit('startMatchResponse', { status: 'error', message: error.message });
+            this.server.to(roomKey).emit('startMatchResponse', { status: 'error', message: error.message });
         }
     }
 
     @SubscribeMessage('startBroadcastingMovies')
-    async handleBroadcastingMovies(@MessageBody() message: string) {
-        console.log('broadcast movie list');
-        await this.server.emit('broadcastMovies', message);
+    async handleBroadcastingMovies(@MessageBody() roomKey: string, @ConnectedSocket() client: Socket) {
+        if (typeof roomKey !== 'string' || !roomKey) {
+            return;
+        }
+        await client.join(roomKey);
+        const message = {
+            type: 'broadcastMovies',
+            messageForClient: 'Movies data updated',
+        };
+        this.server.to(roomKey).emit('broadcastMovies', message);
     }
 
-    broadcastMoviesList(messageForClient: string) {
+    /** Join socket.io room so this client receives room-scoped events (must match HTTP room key). */
+    @SubscribeMessage('joinRoom')
+    async handleJoinRoomSocket(
+        @MessageBody() data: { roomKey?: string; roomId?: string; userId?: string | number },
+        @ConnectedSocket() client: Socket,
+    ) {
+        const roomKey = data?.roomKey ?? data?.roomId;
+        if (!roomKey || typeof roomKey !== 'string') {
+            client.emit('error', { message: 'roomKey is required' });
+            return;
+        }
+        await client.join(roomKey);
+    }
+
+    broadcastMoviesList(messageForClient: string, roomKey: string) {
+        if (!roomKey) {
+            console.warn('broadcastMoviesList: missing roomKey, skip broadcast');
+            return;
+        }
         const message = {
             type: 'broadcastMovies',
             messageForClient,
         };
         console.log('broadcast movie list', message);
 
-        this.server.emit('broadcastMovies', message);
+        this.server.to(roomKey).emit('broadcastMovies', message);
     }
 
-    broadcastMatchDataUpdate(messageForClient: string) {
+    broadcastMatchDataUpdate(messageForClient: string, roomKey: string) {
+        if (!roomKey) {
+            console.warn('broadcastMatchDataUpdate: missing roomKey, skip broadcast');
+            return;
+        }
         const message = {
             type: 'broadcastMatchDataUpdated',
             messageForClient,
         };
-        this.server.emit('broadcastMatchDataUpdated', message);
+        this.server.to(roomKey).emit('broadcastMatchDataUpdated', message);
     }
 
     notifyRoomJoined(room: Match) {
-        this.server.emit('matchUpdated', {
+        const roomKey = room.roomKey;
+        if (!roomKey) {
+            return;
+        }
+        this.server.to(roomKey).emit('matchUpdated', {
             message: `${room.userName} has joined the room`,
             roomDetails: { id: room.roomId, name: room.userName },
             newUser: { ...room },
         });
-    }
-
-    async handleJoinMatch(@MessageBody() data: { userId: number; roomId: string }, @ConnectedSocket() client: Socket) {
-        const match = await this.roomsService.joinRoom(data.userId, data.roomId);
-        client.join(data.roomId);
-        this.server.to(data.roomId).emit('userJoined', match);
     }
 
     afterInit(server: Server) {
@@ -128,7 +170,7 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     ) {
         try {
             await this.roomsService.leaveFromRoom(roomKey, userId);
-            const users = await this.roomsService.getMatchesInRoom(roomKey); // Fetch all users
+            const users = await this.roomsService.getMatchesInRoom(roomKey);
 
             client.leave(roomKey);
             this.server.to(roomKey).emit('roomUpdate', {
@@ -140,8 +182,10 @@ export class RoomsGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
         }
     }
 
-    @SubscribeMessage('filtersUpdated')
-    async broadcastFilters(roomKey: string, filters: any) {
+    async emitFiltersUpdated(roomKey: string, filters: any) {
+        if (!roomKey) {
+            return;
+        }
         await this.server.to(roomKey).emit('filtersUpdated', { roomKey, filters });
         console.log(`Broadcasting filters update to room ${roomKey}:`, filters);
     }
