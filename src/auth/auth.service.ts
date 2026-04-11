@@ -15,6 +15,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { LessThan, Repository } from 'typeorm';
 
 import { BearerToken, SuccessMessage } from '@src/auth/auth.response.types';
+import { AuthErrorCode } from '@src/auth/auth-error-codes';
 import { ClientType, User } from '@src/user/user.model';
 import { UserService } from '@src/user/user.service';
 import { AttemptService } from '@src/attempt/attempt.service';
@@ -57,7 +58,7 @@ export class AuthService {
 
             return payload.email;
         } catch (error) {
-            throw new UnauthorizedException('Invalid ID Token');
+            throw new UnauthorizedException({ code: AuthErrorCode.GOOGLE_INVALID_TOKEN });
         }
     }
 
@@ -74,13 +75,13 @@ export class AuthService {
         const user = await this.userService.getUserByEmail(dto.email);
 
         if (user) {
-            throw new ConflictException('User with this email already exists');
+            throw new ConflictException({ code: AuthErrorCode.EMAIL_ALREADY_EXISTS });
         }
 
         const newUser = await this.userService.createUser(dto);
 
         if (!newUser) {
-            throw new BadRequestException('Something went wrong.');
+            throw new BadRequestException({ code: AuthErrorCode.REGISTRATION_FAILED });
         }
 
         return { message: 'User successfully registered.' };
@@ -99,13 +100,13 @@ export class AuthService {
             await this.attemptService.check(attemptCheck);
 
             if (user.client !== 'NONE' || !compareSync(dto.password, user.password)) {
-                throw new UnauthorizedException('Incorrect email or password.');
+                throw new UnauthorizedException({ code: AuthErrorCode.INVALID_CREDENTIALS });
             }
 
             await this.attemptService.remove(attemptCheck);
             return this.generateToken(user);
         } else {
-            throw new UnauthorizedException('Incorrect email or password.');
+            throw new UnauthorizedException({ code: AuthErrorCode.USER_NOT_FOUND });
         }
     }
 
@@ -113,7 +114,7 @@ export class AuthService {
         const email = await this.verifyIdToken(idToken);
 
         if (!email) {
-            throw new NotFoundException('invalid google token.');
+            throw new NotFoundException({ code: AuthErrorCode.GOOGLE_EMAIL_NOT_IN_TOKEN });
         }
 
         const { GOOGLE } = ClientType;
@@ -122,7 +123,7 @@ export class AuthService {
 
         if (user) {
             if (user.client !== GOOGLE) {
-                throw new ConflictException('User with this email already exists without google provider.');
+                throw new ConflictException({ code: AuthErrorCode.GOOGLE_PROVIDER_MISMATCH });
             }
 
             return this.generateToken(user);
@@ -139,7 +140,7 @@ export class AuthService {
         const newUser = await this.userService.createUser(newGoogleUser);
 
         if (!newUser) {
-            throw new BadRequestException('Something went wrong.');
+            throw new BadRequestException({ code: AuthErrorCode.GOOGLE_REGISTRATION_FAILED });
         }
 
         return this.generateToken(newUser);

@@ -3,6 +3,7 @@ import { Attempt } from '@src/attempt/attempt.model';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AttemptTypes } from '@src/attempt/attempt.interfaces';
+import { AuthErrorCode } from '@src/auth/auth-error-codes';
 
 @Injectable()
 export class AttemptService {
@@ -12,10 +13,14 @@ export class AttemptService {
         const attempt = await this.checkAttempts(input);
 
         if (attempt && attempt.count >= 3 && attempt.exp > new Date()) {
-            const timeDifferenceInSeconds = Math.floor((attempt.exp.getTime() - new Date().getTime()) / 1000);
-            throw new ForbiddenException(
-                `Exceeded the maximum attempts. Please try again in ${timeDifferenceInSeconds}s.`,
+            const retryAfterSeconds = Math.max(
+                1,
+                Math.floor((attempt.exp.getTime() - new Date().getTime()) / 1000),
             );
+            throw new ForbiddenException({
+                code: AuthErrorCode.LOGIN_RATE_LIMITED,
+                retryAfterSeconds,
+            });
         }
 
         await this.save(input);
