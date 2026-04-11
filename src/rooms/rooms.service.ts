@@ -41,7 +41,8 @@ export class RoomsService {
     async createRoom(userId: number, name?: string, filters?: any): Promise<Match> {
         const existingRoom = await this.getUsersRooms(userId);
         if (existingRoom) {
-            throw new ConflictException('Room already exists for this user');
+            // Allow creating a fresh lobby: remove the previous authored room (matches + room row).
+            await this.deleteRoom(existingRoom.key);
         }
         const key = this.generateKey();
 
@@ -380,6 +381,80 @@ export class RoomsService {
 
         await this.matchRepository.remove(match);
         return { message: 'Successfully left the match' };
+    }
+
+    /** All `Match` rows for the user with joined `Room` metadata (author or participant). */
+    async getUserRoomMemberships(userId: number): Promise<
+        Array<{
+            roomKey: string;
+            roomId: string;
+            role: string;
+            isAuthor: boolean;
+            userStatus: string;
+            matchPhase: string;
+            roomStatus: string;
+            roomName: string | null;
+        }>
+    > {
+        const matches = await this.matchRepository.find({
+            where: { userId },
+            order: { id: 'DESC' },
+        });
+
+        const results: Array<{
+            roomKey: string;
+            roomId: string;
+            role: string;
+            isAuthor: boolean;
+            userStatus: string;
+            matchPhase: string;
+            roomStatus: string;
+            roomName: string | null;
+        }> = [];
+
+        for (const m of matches) {
+            const room = await this.roomRepository.findOne({ where: { key: m.roomKey } });
+            if (!room) {
+                continue;
+            }
+
+            results.push({
+                roomKey: m.roomKey,
+                roomId: String(room.id),
+                role: m.role,
+                isAuthor: room.authorId === userId,
+                userStatus: m.userStatus,
+                matchPhase: room.matchPhase,
+                roomStatus: room.status,
+                roomName: room.name ?? null,
+            });
+        }
+
+        return results;
+    }
+
+    /**
+     * Participant: removes only their `Match` row.
+     * Room author: deletes the whole room (and all matches), same as `deleteRoom`.
+     */
+    async leaveRoomMembership(userId: number, roomKey: string): Promise<{ message: string }> {
+        const room = await this.roomRepository.findOne({ where: { key: roomKey } });
+        if (!room) {
+            throw new NotFoundException('Room not found');
+        }
+
+        const match = await this.matchRepository.findOne({ where: { userId, roomKey } });
+        if (!match) {
+            throw new NotFoundException('You are not a member of this room');
+        }
+
+        if (room.authorId === userId) {
+            await this.deleteRoom(roomKey);
+        } else {
+            await this.leaveFromMatch(userId, roomKey);
+        }
+
+        return { message: 'Successfully left the room' };
     }
 
     async deleteRoom(key: string): Promise<void> {

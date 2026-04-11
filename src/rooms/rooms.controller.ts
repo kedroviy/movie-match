@@ -36,12 +36,36 @@ import { MoviesResponse } from './dto/movies-response.dto';
 import { RoomStateDto } from './dto/room-state.dto';
 import { CreateRoomDto, CreateRoomKeyResponse } from './dto/create-room.dto';
 import { GetUser as GetUserDecorator } from './decorators/get-user.decorators';
+import { UserRoomMembershipDto } from './dto/user-room-membership.dto';
 
 @Controller('rooms')
 @ApiTags('Rooms')
 @ApiBearerAuth()
 export class RoomsController {
     constructor(private readonly roomsService: RoomsService) {}
+
+    @Get('my/memberships')
+    @UseGuards(AuthGuard)
+    @ApiOperation({ summary: 'Rooms the user is in (author or participant)' })
+    @ApiOkResponse({ type: UserRoomMembershipDto, isArray: true })
+    async getMyRoomMemberships(@GetUserDecorator() user: GetUser): Promise<UserRoomMembershipDto[]> {
+        return this.roomsService.getUserRoomMemberships(user.id);
+    }
+
+    @Post('my/leave')
+    @UseGuards(AuthGuard)
+    @ApiOperation({
+        summary: 'Leave a room (participant) or close room (author)',
+        description:
+            'Participants remove only their match row. Room authors delete the whole room and all participants.',
+    })
+    @ApiBadRequestResponse({ description: 'roomKey is required' })
+    async leaveMyRoom(@GetUserDecorator() user: GetUser, @Body() body: { roomKey?: string }) {
+        if (!body?.roomKey?.trim()) {
+            throw new BadRequestException('roomKey is required');
+        }
+        return this.roomsService.leaveRoomMembership(user.id, body.roomKey.trim());
+    }
 
     @Post('create')
     @UseGuards(AuthGuard)
