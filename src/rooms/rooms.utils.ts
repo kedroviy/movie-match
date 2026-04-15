@@ -1,4 +1,5 @@
 import { Genre, Country, Year } from './rooms.interface';
+import { KINOPOISK_COUNTRY_BY_ID, KINOPOISK_GENRE_BY_ID } from './kp-filter-values';
 
 export interface ISMFormData {
     excludeGenre: Genre[];
@@ -9,6 +10,24 @@ export interface ISMFormData {
     selectedRating: [number, number];
 }
 
+function asId(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) return Number(value);
+    return null;
+}
+
+function kpGenreName(genre: { id?: unknown; label?: string } | null | undefined): string {
+    const id = asId(genre?.id);
+    const mapped = id != null ? KINOPOISK_GENRE_BY_ID[id] : undefined;
+    return (mapped ?? genre?.label ?? '').toLocaleLowerCase();
+}
+
+function kpCountryName(country: { id?: unknown; label?: string } | null | undefined): string {
+    const id = asId(country?.id);
+    const mapped = id != null ? KINOPOISK_COUNTRY_BY_ID[id] : undefined;
+    return mapped ?? country?.label ?? '';
+}
+
 export const constructUrl = (baseURL: string, formData: ISMFormData, page: number): string => {
     const params = new URLSearchParams();
 
@@ -17,13 +36,16 @@ export const constructUrl = (baseURL: string, formData: ISMFormData, page: numbe
         params.append('year', year.label);
     });
     formData.selectedGenres.forEach((genre) => {
-        params.append('genres.name', genre.label.toLocaleLowerCase());
+        const name = kpGenreName(genre as any);
+        if (name) params.append('genres.name', name);
     });
     formData.excludeGenre.forEach((genre) => {
-        params.append('genres.name', `%21${genre.label.toLocaleLowerCase()}`);
+        const name = kpGenreName(genre as any);
+        if (name) params.append('genres.name', `!${name}`);
     });
     formData.selectedCountries.forEach((country) => {
-        params.append('countries.name', country.label);
+        const name = kpCountryName(country as any);
+        if (name) params.append('countries.name', name);
     });
     if (formData.selectedRating && formData.selectedRating.length === 2) {
         const [minRating, maxRating] = formData.selectedRating;
