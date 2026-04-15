@@ -18,6 +18,6 @@ export const METHODES = {
 };
 
 export const URLS = {
-    kp_url: 'https://api.kinopoisk.dev/v1.4/movie?',
+    kp_url: 'https://api.poiskkino.dev/v1.4/movie?',
     kp_key: 'Z6ZNZN2-1A24591-H2Q6R76-KJ9C676',
 };

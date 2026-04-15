@@ -282,7 +282,7 @@ export class MatchService {
     }
 
     async fetchMovieById(id: number): Promise<any> {
-        const url = `https://api.kinopoisk.dev/v1.4/movie/${id}`;
+        const url = `https://api.poiskkino.dev/v1.4/movie/${id}`;
         const config = {
             headers: {
                 'X-API-KEY': URLS.kp_key,

@@ -8,7 +8,7 @@ export class MovieService {
     constructor(private httpService: HttpService) {}
 
     async getMovieFromId(movieId: string) {
-        const url = `https://api.kinopoisk.dev/v1.4/movie/${movieId}`;
+        const url = `https://api.poiskkino.dev/v1.4/movie/${movieId}`;
         const config = {
             headers: {
                 accept: 'application/json',
@@ -33,7 +33,7 @@ export class MovieService {
         const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
         const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 10;
 
-        const url = `https://api.kinopoisk.dev/v1.4/movie/search?page=${safePage}&limit=${safeLimit}&query=${encodeURIComponent(
+        const url = `https://api.poiskkino.dev/v1.4/movie/search?page=${safePage}&limit=${safeLimit}&query=${encodeURIComponent(
             safeQuery,
         )}`;
         const config = {

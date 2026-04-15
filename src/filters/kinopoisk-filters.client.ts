@@ -19,7 +19,7 @@ export class KinopoiskFiltersClient {
     constructor(private readonly http: HttpService) {}
 
     async getPossibleValuesByField(apiKey: string, field: string): Promise<KinopoiskPossibleValue[]> {
-        const url = `https://api.kinopoisk.dev/v1.4/movie/possible-values-by-field?field=${encodeURIComponent(field)}`;
+        const url = `https://api.poiskkino.dev/v1.4/movie/possible-values-by-field?field=${encodeURIComponent(field)}`;
         const response = await firstValueFrom(
             this.http.get<unknown>(url, {
                 headers: { Accept: 'application/json', 'X-API-KEY': apiKey },
