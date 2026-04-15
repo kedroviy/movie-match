@@ -1,15 +1,16 @@
-export type FilterOption = { id: number; name?: string; label: string };
+export type FilterOption = { id: string | number; name?: string; label: string; kpName?: string };
 
 export interface SMFormItem<T> {
     id: T;
     disabled?: boolean;
     label: string;
+    kpName?: string;
     children?: SMFormItem<T>[];
 }
 
-export type Genre = SMFormItem<number>;
-export type Country = SMFormItem<number | string>;
-export type Year = SMFormItem<number | string>;
+export type Genre = SMFormItem<string | number>;
+export type Country = SMFormItem<string | number>;
+export type Year = SMFormItem<string | number>;
 
 export interface ISMFormData {
     excludeGenre: Genre[];
@@ -22,7 +23,7 @@ export interface ISMFormData {
 export interface RoomState {
     page: number;
     currentMovieIndex: number;
-    movies: any[];
+    movies: unknown[];
     votes: Map<string, Map<string, boolean>>;
 }
 

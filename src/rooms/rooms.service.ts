@@ -12,7 +12,7 @@ import { Room, RoomStatus } from '@src/rooms/rooms.model';
 import { Match, MatchUserStatus } from '@src/match/match.model';
 import { UserService } from '@src/user/user.service';
 import { RoomsGateway } from './rooms.gateway';
-import { constructUrl, parseMoviesColumn } from './rooms.utils';
+import { constructUrl, normalizeMovieDeck, parseMoviesColumn } from './rooms.utils';
 import { RoomState } from './rooms.interface';
 import axios from 'axios';
 import 'dotenv/config';
@@ -268,14 +268,14 @@ export class RoomsService {
         }
 
         const rawDeck = parseMoviesColumn(room.movies) ?? room.movies;
-        const deck = Array.isArray(rawDeck) ? { docs: rawDeck } : rawDeck;
-        const docs = deck?.docs as unknown[] | undefined;
+        const deck = normalizeMovieDeck(rawDeck);
+        const docs = deck?.docs;
         if (!docs?.length) {
             throw new NotFoundException('No movies found for this user in the specified room');
         }
 
         return {
-            ...deck,
+            ...(deck ?? { docs }),
             _room: {
                 roomKey: room.key,
                 aggregateVersion: room.aggregateVersion ?? 0,
@@ -505,14 +505,24 @@ export class RoomsService {
 
         const matches = room.matches?.length ? room.matches : await this.getMatchesInRoom(key);
         const rawDeck = parseMoviesColumn(room.movies) ?? room.movies;
-        const deck = Array.isArray(rawDeck) ? { docs: rawDeck } : rawDeck;
-        const docs = (deck as any)?.docs as unknown[] | undefined;
+        const deck = normalizeMovieDeck(rawDeck);
+        const docs = deck?.docs;
         const docCount = Array.isArray(docs) ? docs.length : 0;
         let firstMovieId: number | undefined;
         let lastMovieId: number | undefined;
         if (docCount > 0) {
-            firstMovieId = (docs![0] as any)?.id;
-            lastMovieId = (docs![docCount - 1] as any)?.id;
+            const first = docs?.[0];
+            const last = docs?.[docCount - 1];
+            if (typeof first === 'object' && first !== null) {
+                const id = Reflect.get(first, 'id');
+                const numeric = typeof id === 'number' ? id : Number(id);
+                firstMovieId = Number.isFinite(numeric) ? numeric : undefined;
+            }
+            if (typeof last === 'object' && last !== null) {
+                const id = Reflect.get(last, 'id');
+                const numeric = typeof id === 'number' ? id : Number(id);
+                lastMovieId = Number.isFinite(numeric) ? numeric : undefined;
+            }
         }
 
         const participants = (matches ?? []).map((m) => ({

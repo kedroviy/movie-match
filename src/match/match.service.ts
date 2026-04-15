@@ -8,7 +8,7 @@ import { Room, RoomStatus } from '@src/rooms/rooms.model';
 import { RoomsGateway } from '@src/rooms/rooms.gateway';
 import axios from 'axios';
 import { URLS } from '@src/constants';
-import { parseMoviesColumn } from '@src/rooms/rooms.utils';
+import { normalizeMovieDeck, parseMoviesColumn } from '@src/rooms/rooms.utils';
 import { MatchPhase } from '@src/rooms/match-phase.enum';
 import { RoomStateMachineService } from '@src/rooms/room-state-machine.service';
 
@@ -227,12 +227,17 @@ export class MatchService {
         } else {
             this.roomStateMachine.assertNarrowExceptionDeck(room);
             const raw = parseMoviesColumn(room.movies) ?? room.movies;
-            const deck = Array.isArray(raw) ? { docs: raw } : raw;
-            if (!deck?.docs) {
+            const deck = normalizeMovieDeck(raw);
+            if (!deck) {
                 throw new ConflictException('Room deck has invalid shape');
             }
             const commonNumeric = commonMovieIds.map((id) => Number(id));
-            const filteredMovies = deck.docs.filter((movie: any) => commonNumeric.includes(Number(movie.id)));
+            const filteredMovies = deck.docs.filter((movie) => {
+                if (typeof movie !== 'object' || movie === null) return false;
+                const id = Reflect.get(movie, 'id');
+                const numeric = typeof id === 'number' ? id : Number(id);
+                return Number.isFinite(numeric) && commonNumeric.includes(numeric);
+            });
             const updatedMoviesData = {
                 ...deck,
                 docs: filteredMovies,

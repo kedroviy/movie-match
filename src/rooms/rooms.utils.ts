@@ -16,13 +16,15 @@ function asId(value: unknown): number | null {
     return null;
 }
 
-function kpGenreName(genre: { id?: unknown; label?: string } | null | undefined): string {
+function kpGenreName(genre: Genre | null | undefined): string {
+    if (genre?.kpName) return genre.kpName.toLocaleLowerCase();
     const id = asId(genre?.id);
     const mapped = id != null ? KINOPOISK_GENRE_BY_ID[id] : undefined;
     return (mapped ?? genre?.label ?? '').toLocaleLowerCase();
 }
 
-function kpCountryName(country: { id?: unknown; label?: string } | null | undefined): string {
+function kpCountryName(country: Country | null | undefined): string {
+    if (country?.kpName) return country.kpName;
     const id = asId(country?.id);
     const mapped = id != null ? KINOPOISK_COUNTRY_BY_ID[id] : undefined;
     return mapped ?? country?.label ?? '';
@@ -36,15 +38,15 @@ export const constructUrl = (baseURL: string, formData: ISMFormData, page: numbe
         params.append('year', year.label);
     });
     formData.selectedGenres.forEach((genre) => {
-        const name = kpGenreName(genre as any);
+        const name = kpGenreName(genre);
         if (name) params.append('genres.name', name);
     });
     formData.excludeGenre.forEach((genre) => {
-        const name = kpGenreName(genre as any);
+        const name = kpGenreName(genre);
         if (name) params.append('genres.name', `!${name}`);
     });
     formData.selectedCountries.forEach((country) => {
-        const name = kpCountryName(country as any);
+        const name = kpCountryName(country);
         if (name) params.append('countries.name', name);
     });
     if (formData.selectedRating && formData.selectedRating.length === 2) {
@@ -56,7 +58,7 @@ export const constructUrl = (baseURL: string, formData: ISMFormData, page: numbe
 };
 
 /** Normalize DB `movies` column (legacy string JSON or jsonb object). */
-export function parseMoviesColumn(raw: unknown): any {
+export function parseMoviesColumn(raw: unknown): unknown {
     if (raw == null) {
         return null;
     }
@@ -68,4 +70,24 @@ export function parseMoviesColumn(raw: unknown): any {
         }
     }
     return raw;
+}
+
+export type MovieDeck = Readonly<Record<string, unknown> & { docs: ReadonlyArray<unknown> }>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function hasDocsArray(value: Record<string, unknown>): value is Record<string, unknown> & { docs: ReadonlyArray<unknown> } {
+    return Array.isArray(value.docs);
+}
+
+export function normalizeMovieDeck(raw: unknown): MovieDeck | null {
+    if (Array.isArray(raw)) {
+        return { docs: raw };
+    }
+    if (isRecord(raw) && hasDocsArray(raw)) {
+        return raw;
+    }
+    return null;
 }
