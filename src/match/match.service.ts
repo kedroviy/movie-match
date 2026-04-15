@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Match, MatchUserStatus } from '@src/match/match.model';
 import { Repository } from 'typeorm';
@@ -11,6 +11,7 @@ import { URLS } from '@src/constants';
 import { normalizeMovieDeck, parseMoviesColumn } from '@src/rooms/rooms.utils';
 import { MatchPhase } from '@src/rooms/match-phase.enum';
 import { RoomStateMachineService } from '@src/rooms/room-state-machine.service';
+import { ExternalMovieCacheService } from '@src/movie/external-movie-cache.service';
 
 @Injectable()
 export class MatchService {
@@ -22,9 +23,58 @@ export class MatchService {
         @Inject(RoomsService) private roomsService: RoomsService,
         private readonly roomsGateway: RoomsGateway,
         private readonly roomStateMachine: RoomStateMachineService,
+        private readonly externalMovieCacheService: ExternalMovieCacheService,
     ) {}
 
     baseURL: string = URLS.kp_url;
+
+    private describeExternalApiError(error: unknown): { kind: 'client' | 'server' | 'unknown'; message: string } {
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const statusText = error.response?.statusText;
+            const data = error.response?.data as any;
+            const upstreamMessage =
+                typeof data === 'string'
+                    ? data
+                    : typeof data?.message === 'string'
+                      ? data.message
+                      : typeof data?.error === 'string'
+                        ? data.error
+                        : undefined;
+            const message = `Kinopoisk API error${status ? ` ${status}` : ''}${statusText ? ` ${statusText}` : ''}${
+                upstreamMessage ? `: ${upstreamMessage}` : ''
+            }`;
+            if (typeof status === 'number' && status >= 400 && status < 500) {
+                return { kind: 'client', message };
+            }
+            if (typeof status === 'number' && status >= 500) {
+                return { kind: 'server', message };
+            }
+            return { kind: 'unknown', message };
+        }
+        if (error instanceof Error) {
+            return { kind: 'unknown', message: error.message };
+        }
+        return { kind: 'unknown', message: 'Unknown error calling external API' };
+    }
+
+    private parseRoomFilters(raw: unknown): any {
+        if (raw == null || raw === '') {
+            return {};
+        }
+        if (typeof raw === 'string') {
+            try {
+                const parsed = JSON.parse(raw);
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch {
+                return {};
+            }
+        }
+        if (typeof raw === 'object') {
+            return raw;
+        }
+        return {};
+    }
 
     /** Idempotent: duplicate like for same movie returns success without error. */
     async likeMovie(likeMovieDto: LikeMovieDto): Promise<string> {
@@ -155,12 +205,7 @@ export class MatchService {
                         matchPhase: room.matchPhase,
                     });
                 } else {
-                    let filters;
-                    try {
-                        filters = JSON.parse(room.filters);
-                    } catch (error) {
-                        throw new ConflictException('Failed to parse filters');
-                    }
+                    const filters = this.parseRoomFilters(room.filters);
 
                     this.roomStateMachine.assertFetchNextDeck(room);
                     await this.roomsService.fetchAndSaveMovies(room, filters);
@@ -266,35 +311,34 @@ export class MatchService {
 
     async fetchMoviesFromIds(baseURL: string, ids: number[]): Promise<any> {
         const url = `${baseURL}page=1&limit=10&${ids.map((id) => `id=${id}`).join('&')}`;
-        const config = {
-            headers: {
-                'X-API-KEY': URLS.kp_key,
-            },
-        };
+        const headers = { 'X-API-KEY': URLS.kp_key };
 
         try {
-            const response = await axios.get(url, config);
-            return response.data;
+            return await this.externalMovieCacheService.getOrFetchByUrl(url, headers);
         } catch (error) {
-            console.log(error);
-            throw new Error('Failed to fetch data from external API');
+            const described = this.describeExternalApiError(error);
+            console.error('fetchMoviesFromIds external API failed', { url, described });
+            if (described.kind === 'client') {
+                throw new BadRequestException(described.message);
+            }
+            throw new InternalServerErrorException(described.message);
         }
     }
 
     async fetchMovieById(id: number): Promise<any> {
         const url = `https://api.poiskkino.dev/v1.4/movie/${id}`;
-        const config = {
-            headers: {
-                'X-API-KEY': URLS.kp_key,
-            },
-        };
+        const headers = { 'X-API-KEY': URLS.kp_key };
 
         try {
-            const response = await axios.get(url, config);
-            return response.data.docs;
+            const data = await this.externalMovieCacheService.getOrFetchByUrl(url, headers);
+            return (data as any)?.docs;
         } catch (error) {
-            console.log(error);
-            throw new Error('Failed to fetch data from external API');
+            const described = this.describeExternalApiError(error);
+            console.error('fetchMovieById external API failed', { url, described });
+            if (described.kind === 'client') {
+                throw new BadRequestException(described.message);
+            }
+            throw new InternalServerErrorException(described.message);
         }
     }
 

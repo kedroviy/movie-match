@@ -34,21 +34,33 @@ export const constructUrl = (baseURL: string, formData: ISMFormData, page: numbe
     const params = new URLSearchParams();
 
     params.append('page', page.toString());
-    formData.selectedYears.forEach((year) => {
+    // Sort to make URLs stable → higher cache hit ratio.
+    [...(formData.selectedYears ?? [])]
+        .slice()
+        .sort((a, b) => String(a?.label ?? '').localeCompare(String(b?.label ?? '')))
+        .forEach((year) => {
         params.append('year', year.label);
     });
-    formData.selectedGenres.forEach((genre) => {
-        const name = kpGenreName(genre);
-        if (name) params.append('genres.name', name);
-    });
-    formData.excludeGenre.forEach((genre) => {
-        const name = kpGenreName(genre);
-        if (name) params.append('genres.name', `!${name}`);
-    });
-    formData.selectedCountries.forEach((country) => {
-        const name = kpCountryName(country);
-        if (name) params.append('countries.name', name);
-    });
+    [...(formData.selectedGenres ?? [])]
+        .slice()
+        .map((g) => ({ g, name: kpGenreName(g) }))
+        .filter((x) => Boolean(x.name))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(({ name }) => params.append('genres.name', name));
+
+    [...(formData.excludeGenre ?? [])]
+        .slice()
+        .map((g) => ({ g, name: kpGenreName(g) }))
+        .filter((x) => Boolean(x.name))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(({ name }) => params.append('genres.name', `!${name}`));
+
+    [...(formData.selectedCountries ?? [])]
+        .slice()
+        .map((c) => ({ c, name: kpCountryName(c) }))
+        .filter((x) => Boolean(x.name))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach(({ name }) => params.append('countries.name', name));
     if (formData.selectedRating && formData.selectedRating.length === 2) {
         const [minRating, maxRating] = formData.selectedRating;
         params.append('rating.kp', `${minRating}-${maxRating}`);

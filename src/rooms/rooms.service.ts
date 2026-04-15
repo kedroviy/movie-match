@@ -1,5 +1,5 @@
 import {
-    ConflictException,
+    BadRequestException,
     Inject,
     Injectable,
     InternalServerErrorException,
@@ -36,7 +36,75 @@ export class RoomsService {
     ) {}
 
     private roomStates = new Map<string, RoomState>();
-    private readonly API_KEY: string = process.env.API_KEY_KINO;
+
+    private describeExternalApiError(error: unknown): { kind: 'client' | 'server' | 'unknown'; message: string } {
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const statusText = error.response?.statusText;
+            const data = error.response?.data as any;
+            const upstreamMessage =
+                typeof data === 'string'
+                    ? data
+                    : typeof data?.message === 'string'
+                      ? data.message
+                      : typeof data?.error === 'string'
+                        ? data.error
+                        : undefined;
+            const message = `Kinopoisk API error${status ? ` ${status}` : ''}${statusText ? ` ${statusText}` : ''}${
+                upstreamMessage ? `: ${upstreamMessage}` : ''
+            }`;
+            if (typeof status === 'number' && status >= 400 && status < 500) {
+                return { kind: 'client', message };
+            }
+            if (typeof status === 'number' && status >= 500) {
+                return { kind: 'server', message };
+            }
+            return { kind: 'unknown', message };
+        }
+        if (error instanceof Error) {
+            return { kind: 'unknown', message: error.message };
+        }
+        return { kind: 'unknown', message: 'Unknown error calling external API' };
+    }
+
+    private parseRoomFilters(raw: unknown): any {
+        if (raw == null || raw === '') {
+            return {};
+        }
+        if (typeof raw === 'string') {
+            try {
+                const parsed = JSON.parse(raw);
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch {
+                return {};
+            }
+        }
+        if (typeof raw === 'object') {
+            return raw;
+        }
+        return {};
+    }
+
+    private serializeRoomFilters(filters: unknown): string {
+        if (filters == null) {
+            return JSON.stringify({});
+        }
+        if (typeof filters === 'string') {
+            const trimmed = filters.trim();
+            if (!trimmed) return JSON.stringify({});
+            // if it's already valid JSON - keep it, otherwise fallback to "{}"
+            try {
+                JSON.parse(trimmed);
+                return trimmed;
+            } catch {
+                return JSON.stringify({});
+            }
+        }
+        if (typeof filters === 'object') {
+            return JSON.stringify(filters);
+        }
+        return JSON.stringify({});
+    }
 
     async createRoom(userId: number, name?: string, filters?: any): Promise<Match> {
         const existingRoom = await this.getUsersRooms(userId);
@@ -51,7 +119,7 @@ export class RoomsService {
             key,
             name,
             status: RoomStatus.PENDING,
-            filters,
+            filters: this.serializeRoomFilters(filters),
             matchPhase: MatchPhase.LOBBY,
             aggregateVersion: 0,
         });
@@ -167,15 +235,7 @@ export class RoomsService {
         if (!room) {
             throw new NotFoundException('Room not found');
         }
-
-        let filters;
-        try {
-            filters = JSON.parse(room.filters);
-        } catch (error) {
-            throw new ConflictException('Failed to parse filters');
-        }
-
-        return filters;
+        return this.parseRoomFilters(room.filters);
     }
 
     async startMatch(key: string): Promise<any> {
@@ -189,12 +249,7 @@ export class RoomsService {
             return { status: 'already_started' };
         }
 
-        let filters;
-        try {
-            filters = JSON.parse(room.filters);
-        } catch (error) {
-            throw new ConflictException('Failed to parse filters');
-        }
+        const filters = this.parseRoomFilters(room.filters);
 
         const safeFilters = this.toSafeFilters(filters);
 
@@ -208,7 +263,7 @@ export class RoomsService {
         const headers = { 'X-API-KEY': URLS.kp_key };
 
         try {
-            const data = await this.externalMovieCacheService.getOrFetch(url, safeFilters, currentPage, headers);
+            const data = await this.externalMovieCacheService.getOrFetchByUrl(url, headers);
 
             room.movies = data;
             room.currentPage = currentPage + 1;
@@ -221,8 +276,12 @@ export class RoomsService {
                 matchPhase: room.matchPhase,
             });
         } catch (error) {
-            console.log(error);
-            throw new Error('Failed to fetch data from external API');
+            const described = this.describeExternalApiError(error);
+            console.error('startMatch external API failed', { roomKey: key, url, described });
+            if (described.kind === 'client') {
+                throw new BadRequestException(described.message);
+            }
+            throw new InternalServerErrorException(described.message);
         }
 
         return { status: 'started' };
@@ -242,7 +301,7 @@ export class RoomsService {
 
         const headers = { 'X-API-KEY': URLS.kp_key };
         try {
-            const data = await this.externalMovieCacheService.getOrFetch(url, safeFilters, currentPage, headers);
+            const data = await this.externalMovieCacheService.getOrFetchByUrl(url, headers);
 
             room.movies = data;
             room.currentPage = currentPage + 1;
@@ -256,8 +315,12 @@ export class RoomsService {
                 matchPhase: room.matchPhase,
             });
         } catch (error) {
-            console.log(error);
-            throw new Error('Failed to fetch data from external API');
+            const described = this.describeExternalApiError(error);
+            console.error('fetchAndSaveMovies external API failed', { roomKey: room.key, url, described });
+            if (described.kind === 'client') {
+                throw new BadRequestException(described.message);
+            }
+            throw new InternalServerErrorException(described.message);
         }
     }
 
@@ -314,33 +377,31 @@ export class RoomsService {
             throw new NotFoundException('Room state not found');
         }
 
-        const filters = await this.getRoomFilters(key);
-        const baseURL = process.env.URL_KINOPOISK;
+        const rawFilters = await this.getRoomFilters(key);
+        const safeFilters = this.toSafeFilters(rawFilters);
+        const baseURL: string = URLS.kp_url;
         const nextPage = roomState.page + 1;
-        const url = constructUrl(baseURL, filters, nextPage);
-
-        const config = {
-            headers: {
-                'X-API-KEY': this.API_KEY,
-            },
-        };
+        const url = constructUrl(baseURL, safeFilters as any, nextPage);
+        const headers = { 'X-API-KEY': URLS.kp_key };
 
         console.log('url for match: ', url);
 
         try {
-            const response = await axios.get(url, config);
-            console.log(response);
-            const data = response.data;
+            const data = await this.externalMovieCacheService.getOrFetchByUrl(url, headers);
 
             roomState.page = nextPage;
             roomState.currentMovieIndex = 0;
-            roomState.movies = data.docs;
+            roomState.movies = Array.isArray(data?.docs) ? data.docs : [];
             roomState.votes.clear();
 
             this.sendNextMovieToRoom(key);
         } catch (error) {
-            console.log(error);
-            throw new Error('Failed to fetch data from external API');
+            const described = this.describeExternalApiError(error);
+            console.error('fetchNextPage external API failed', { roomKey: key, url, described });
+            if (described.kind === 'client') {
+                throw new BadRequestException(described.message);
+            }
+            throw new InternalServerErrorException(described.message);
         }
     }
 

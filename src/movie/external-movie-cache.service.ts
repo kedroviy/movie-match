@@ -26,6 +26,10 @@ export class ExternalMovieCacheService {
         return crypto.createHash('sha256').update(normalized).digest('hex');
     }
 
+    static buildCacheKeyFromUrl(url: string): string {
+        return crypto.createHash('sha256').update(url).digest('hex');
+    }
+
     /** Returns cached JSON or fetches, stores, and returns Kinopoisk payload. */
     async getOrFetch(
         url: string,
@@ -33,14 +37,91 @@ export class ExternalMovieCacheService {
         page: number,
         headers: Record<string, string>,
     ): Promise<any> {
+        // Back-compat: legacy callers keyed by filters+page. Prefer `getOrFetchByUrl` for canonical caching.
         const cacheKey = ExternalMovieCacheService.buildCacheKey(safeFilters, page);
         const hit = await this.cacheRepository.findOne({ where: { cacheKey } });
         if (hit?.payload) {
             return hit.payload;
         }
 
-        const response = await axios.get(url, { headers });
-        const data = response.data;
+        let data: any;
+        try {
+            const response = await axios.get(url, { headers });
+            data = response.data;
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                const status = error.response?.status;
+                const statusText = error.response?.statusText;
+                const responseData = error.response?.data as any;
+                const upstreamMessage =
+                    typeof responseData === 'string'
+                        ? responseData
+                        : typeof responseData?.message === 'string'
+                          ? responseData.message
+                          : typeof responseData?.error === 'string'
+                            ? responseData.error
+                            : undefined;
+                const message = `Kinopoisk API error${status ? ` ${status}` : ''}${statusText ? ` ${statusText}` : ''}${
+                    upstreamMessage ? `: ${upstreamMessage}` : ''
+                }`;
+                throw new Error(message);
+            }
+            throw error;
+        }
+
+        try {
+            await this.cacheRepository.save(
+                this.cacheRepository.create({
+                    cacheKey,
+                    payload: data,
+                }),
+            );
+        } catch {
+            const again = await this.cacheRepository.findOne({ where: { cacheKey } });
+            if (again?.payload) {
+                return again.payload;
+            }
+            throw new Error('Failed to persist external movie cache');
+        }
+
+        return data;
+    }
+
+    /**
+     * Canonical caching by full URL (filters + page + any notNullFields, etc).
+     * This avoids cache misses caused by object-shaped filters / ordering.
+     */
+    async getOrFetchByUrl(url: string, headers: Record<string, string>): Promise<any> {
+        const cacheKey = ExternalMovieCacheService.buildCacheKeyFromUrl(url);
+        const hit = await this.cacheRepository.findOne({ where: { cacheKey } });
+        if (hit?.payload) {
+            return hit.payload;
+        }
+
+        let data: any;
+        try {
+            const response = await axios.get(url, { headers });
+            data = response.data;
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                const status = error.response?.status;
+                const statusText = error.response?.statusText;
+                const responseData = error.response?.data as any;
+                const upstreamMessage =
+                    typeof responseData === 'string'
+                        ? responseData
+                        : typeof responseData?.message === 'string'
+                          ? responseData.message
+                          : typeof responseData?.error === 'string'
+                            ? responseData.error
+                            : undefined;
+                const message = `Kinopoisk API error${status ? ` ${status}` : ''}${statusText ? ` ${statusText}` : ''}${
+                    upstreamMessage ? `: ${upstreamMessage}` : ''
+                }`;
+                throw new Error(message);
+            }
+            throw error;
+        }
 
         try {
             await this.cacheRepository.save(

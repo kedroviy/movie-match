@@ -7,9 +7,10 @@ import { JwtModule } from '@src/auth/auth.module';
 import { RoomsModule } from '@src/rooms/rooms.module';
 import { Room } from '@src/rooms/rooms.model';
 import { MatchController } from './match.controller';
+import { MovieModule } from '@src/movie/movie.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Room, Match]), JwtModule, RoomsModule],
+    imports: [TypeOrmModule.forFeature([Room, Match]), JwtModule, RoomsModule, MovieModule],
     providers: [MatchGateway, MatchService],
     controllers: [MatchController],
 })
