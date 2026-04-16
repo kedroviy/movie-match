@@ -24,6 +24,8 @@ import { MatchMoviesModule } from './match-movies/match-movies.module';
 import { ExternalMovieCache } from './movie/external-movie-cache.entity';
 import { FiltersModule } from './filters/filters.module';
 import { ExternalFilterValue } from './filters/external-filter-value.entity';
+import { I18nModule } from './i18n/i18n.module';
+import { I18nMessage } from './i18n/i18n.model';
 
 @Module({
     imports: [
@@ -33,7 +35,7 @@ import { ExternalFilterValue } from './filters/external-filter-value.entity';
             port: Number(process.env.POSTGRES_PORT) || 5432,
             password: process.env.POSTGRES_PASSWORD,
             username: process.env.POSTGRES_USER ?? process.env.POSTGRES_USERNAME,
-            entities: [User, Room, Attempt, Favorite, Match, VerifyCode, ExternalMovieCache, ExternalFilterValue],
+            entities: [User, Room, Attempt, Favorite, Match, VerifyCode, ExternalMovieCache, ExternalFilterValue, I18nMessage],
             database: process.env.POSTGRES_DATABASE,
             synchronize: true,
             ssl: {
@@ -56,6 +58,7 @@ import { ExternalFilterValue } from './filters/external-filter-value.entity';
         EmailModule,
         MatchMoviesModule,
         FiltersModule,
+        I18nModule,
     ],
     controllers: [],
     providers: [
